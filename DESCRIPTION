@@ -1,0 +1,16 @@
+Package: wunderWrapper
+Type: Package
+Title: Wrapper for accessing/storing historic weather data counts using package rwunderground
+Version: 1.0
+Date: 2017-09-22
+Author: Craig Mohn
+Maintainer: Craig Mohn <craig.mohn.projects@gmail.com>
+Depends: R (>= 2.15.0)
+Description: Request historic weather data from wunderground.com using their API interface.  This 
+  interface requires a key, which has daily and per minute query limits.  Retrieved data is saved
+  for future use.
+Imports: rwunderground, dplyr, lubridate, magrittr
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.0.1
