@@ -243,12 +243,15 @@ hourly_localtimes <- function(hourlydata) {
 }
 dailysummary <- function(hourlydata) {
 ###  make the R checker happy with utterly irrelevant initializations of variables used by dplyr
-  weatherstation <- localdate <- temp <- precip <- gustratio <- rain <- snow <- hail <- NULL
+  weatherstation <- localdate <- temp <- precip <- gustratio <- rain <- NULL
+  wind_spd <- snow <- hail <- NULL
   weather_daily <-  hourlydata %>%
     dplyr::group_by(weatherstation,localdate) %>%
     dplyr::summarize(min_temp=min(temp,na.rm=TRUE),
                      max_temp=max(temp,na.rm=TRUE),
                     mean_temp=mean(temp,na.rm=TRUE),
+                    mean_windspd=mean(wind_spd,na.rm=TRUE),
+                    max_windspd=max(wind_spd,na.rm=TRUE),
                     tot_precip=sum(precip,na.rm=TRUE),
                     any_gust=any(gustratio>1.6,na.rm=TRUE),
                     any_rain=any(rain>0,na.rm=TRUE),
