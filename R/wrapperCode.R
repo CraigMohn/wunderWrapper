@@ -6,31 +6,40 @@
 #'   The file will have a name like STATION_YEARXXXX.rda.  There are several minute delays 
 #'   in execution, so that you can't accidentally exceed the rate limit.
 #'
-#' @param weatherstation string containing weatherstation. if specifying an all-numeric
-#'   station id, precede the digits with "ZIP".
+#' @param weatherstation string containing weatherstation. If specifying an all-numeric
+#'   station id, precede the digits with "ZIP", if specifying a personal weatherstion id, 
+#'   precede the id with "pws:".
 #' @param year numeric 4 digit year for desired data.
-#' @param quarter if numeric: 0 = whole year, 1-4= quarter. if a string, use daystart 
-#'   and dayend and name file using the string. 
+#' @param quarter if numeric: 0 = whole year, 1-4= quarter. If a string, use daystart 
+#'   and dayend and include the string in the names of the archive filename and dataframe
+#'   created.
 #' @param daystart string containing 4-digit "MMDD" date for first date requested.
 #' @param dayend string containing 4-digit "MMDD" date for last date requested.
 #' @param archive.dir string containing the locally-archived wunderground data directory.
 #'
 #' @return a list containing two dataframes.  One contains approximately hourly measures
 #'   of temperature, precipitation, wind, etc, along with time and weatherstation id. 
-#'   The other contains daily mins, max, and totals for the things in the hourly reports.
-#'
+#'   The other contains daily mins, max, means and totals for the things in the hourly 
+#'   reports.  Mins and maxs are based on all daily observations plus interpolated 
+#'   values for midnight (local time) at the beginning and end of the day.  Means are
+#'   based on data plus the midnight interpolations, weighted by the elapsed time between
+#'   them.  Precip totals are the sum of hourly precip totals over those observations 
+#'   which are taken at the most common time after the hour, for many stations that is 53
+#'   minutes after the hour.
+#'   
 #' @seealso \code{\link{update_weatherdata}}
 #'
 #' @export
 nocap_build_archive <- function(weatherstation,
-                                year,quarter=0,daystart="",dayend="",
+                                year,quarter="",daystart="",dayend="",
                                 archive.dir="") {
   #  no checks on overwriting, or number of calls
   old_wd <- getwd()
   on.exit(setwd(old_wd))
   if (archive.dir!="") setwd(archive.dir)
   
-  if (is.numeric(quarter)) {
+  nameweatherstation <- gsub("pws:","",weatherstation)
+  if (!missing(quarter) & is.numeric(quarter)) {
     if (quarter == 1) {
       dbeg <- "0101"
       dend <- "0331"
@@ -66,9 +75,9 @@ nocap_build_archive <- function(weatherstation,
   Sys.sleep(60)
   wdata <- zip_history_range(location=weatherstation,date_start=date_start,
                              date_end=date_end,key=get_api_key())
-  wdata$weatherstation <- weatherstation
-  assign(paste0(weatherstation,"_",year,qstr),wdata)
-  save(list=paste0(weatherstation,"_",year,qstr),file=paste0(weatherstation,"_",year,qstr,".rda"))                   
+  wdata$weatherstation <- nameweatherstation
+  assign(paste0(nameweatherstation,"_",year,qstr),wdata)
+  save(list=paste0(nameweatherstation,"_",year,qstr),file=paste0(nameweatherstation,"_",year,qstr,".rda"))                   
   return(wdata)
 }
 
@@ -89,9 +98,15 @@ nocap_build_archive <- function(weatherstation,
 #' @param archive.dir string containing the locally-archived wunderground data directory.
 #' @param update.dir string containing the locally-archived wunderground data updates directory.
 #'
-#' @return A list containing two dataframes.  One contains approximately hourly measures
+#' @return a list containing two dataframes.  One contains approximately hourly measures
 #'   of temperature, precipitation, wind, etc, along with time and weatherstation id. 
-#'   Th other contains daily mins, max, and totals for the things in the hourly reports.
+#'   The other contains daily mins, max, means and totals for the things in the hourly 
+#'   reports.  Mins and maxs are based on all daily observations plus interpolated 
+#'   values for midnight (local time) at the beginning and end of the day.  Means are
+#'   based on data plus the midnight interpolations, weighted by the elapsed time between
+#'   them.  Precip totals are the sum of hourly precip totals over those observations 
+#'   which are taken at the most common time after the hour, for many stations that is 53
+#'   minutes after the hour.
 #'
 #' @seealso \code{\link{update_weatherdata}}
 #'
@@ -110,7 +125,13 @@ rebuild_weather <- function(archive.dir,update.dir="") {
     load(x)
     assign("temp",eval(parse(text=gsub(".rda","",x))))
     temp <- hourly_localtimes(temp)
-    weather_hourly <- dplyr::bind_rows(weather_hourly,temp)
+    if (is.null(weather_hourly)) {
+      weather_hourly <- temp
+    } else {
+      weather_hourly <- dplyr::bind_rows(dplyr::anti_join(weather_hourly,temp,
+                                        by=c("weatherstation","localdate","localtime")),
+                                          temp)
+    }
   }  
   setwd(old_wd)
   if (update.dir!="") {
@@ -123,7 +144,7 @@ rebuild_weather <- function(archive.dir,update.dir="") {
       load(x)
       temp <- hourly_localtimes(weatherupdate)
       weather_hourly <- dplyr::bind_rows(dplyr::anti_join(weather_hourly,temp,
-                                                   by=c("weatherstation","localtime")),
+                                             by=c("weatherstation","localdate","localtime")),
                                          temp)
     }  
     setwd(old_wd)
@@ -160,9 +181,15 @@ rebuild_weather <- function(archive.dir,update.dir="") {
 #' @param update.dir string containing the locally-archived wunderground data 
 #'   updates directory, so that data fetched can be re-used.
 #'
-#' @return A list containing two dataframes.  One contains approximately hourly measures
+#' @return A la list containing two dataframes.  One contains approximately hourly measures
 #'   of temperature, precipitation, wind, etc, along with time and weatherstation id. 
-#'   The other contains daily mins, max, and totals for the things in the hourly reports.
+#'   The other contains daily mins, max, means and totals for the things in the hourly 
+#'   reports.  Mins and maxs are based on all daily observations plus interpolated 
+#'   values for midnight (local time) at the beginning and end of the day.  Means are
+#'   based on data plus the midnight interpolations, weighted by the elapsed time between
+#'   them.  Precip totals are the sum of hourly precip totals over those observations 
+#'   which are taken at the most common time after the hour, for many stations that is 53
+#'   minutes after the hour.
 #'
 #' @seealso \code{\link{rebuild_weather}}
 #'
@@ -171,12 +198,13 @@ update_weatherdata <- function(weatherpair,weatherstation,begin.date=NA,end.date
                                     update.dir="") {
 ###  make the R checker happy with utterly irrelevant initializations of variables used by dplyr
   localtime <- localdate <- NULL
+  nameweatherstation <- gsub("psw:","",weatherstation)
   weatherdata <- weatherpair[["hourly"]]
   weatherdaily <- weatherpair[["daily"]]
-  station_data <- weatherdata[weatherdata$weatherstation==weatherstation,]
-  station_daily <- weatherdaily[weatherdaily$weatherstation==weatherstation,]
-  other_data <- weatherdata[weatherdata$weatherstation!=weatherstation,]
-  other_daily <- weatherdaily[weatherdaily$weatherstation!=weatherstation,]
+  station_data <- weatherdata[weatherdata$weatherstation==nameweatherstation,]
+  station_daily <- weatherdaily[weatherdaily$weatherstation==nameweatherstation,]
+  other_data <- weatherdata[weatherdata$weatherstation!=nameweatherstation,]
+  other_daily <- weatherdaily[weatherdaily$weatherstation!=nameweatherstation,]
   
   if (missing(end.date)|is.na(end.date)) end.date <- as.character(format(Sys.Date(),"%Y%m%d"))
 
@@ -191,19 +219,19 @@ update_weatherdata <- function(weatherpair,weatherstation,begin.date=NA,end.date
                                        as.Date(begin.date,format="%Y%m%d"),
                                        units="days"))+1)
   if (ndates > 50) {
-    cat("\ntoo many dates requested in one call to update_home_weatherdata")
+    cat("\ntoo many dates requested in one call to update_weatherdata")
     cat("\n", begin.date,"    ",end.date)
   }  else {
     cat("\n",ndates," calls to wunderground. 60 second sleep to avoid rate limit")
     Sys.sleep(60)
     new_data <- zip_history_range(location=weatherstation,date_start=begin.date,
                               date_end=end.date,key=rwunderground::get_api_key())
-    new_data$weatherstation <- weatherstation
+    new_data$weatherstation <- nameweatherstation
     new_data_local <- hourly_localtimes(new_data)
     new_daily <- dailysummary(new_data_local)
     
     if (update.dir!="") {
-      updfile <- paste0(update.dir,"/",weatherstation,"weatherupdate.rda")
+      updfile <- paste0(update.dir,"/",nameweatherstation,"weatherupdate.rda")
       if (file.exists(updfile)) {
         load(updfile)
         file.rename(updfile,paste0(updfile,"old"))
@@ -216,11 +244,11 @@ update_weatherdata <- function(weatherpair,weatherstation,begin.date=NA,end.date
       save(weatherupdate,file=updfile)
     }
     weatherdata <- dplyr::bind_rows(dplyr::anti_join(station_data,new_data_local,
-                                                     by=c("weatherstation","localtime")),
+                                          by=c("weatherstation","localdate","localtime")),
                                     new_data_local,other_data)              %>%
                    dplyr::arrange(weatherstation,localtime)
     weatherdaily <- dplyr::bind_rows(dplyr::anti_join(station_daily,new_daily,
-                                                       by=c("weatherstation","localdate")),
+                                           by=c("weatherstation","localdate")),
                                      new_daily,other_daily)                        %>%
                     dplyr::arrange(weatherstation,localdate)
   }
@@ -232,7 +260,7 @@ hourly_localtimes <- function(hourlydata) {
   if (!is.null(hourlydata)) {
     hourlydata$localtz <- lubridate::tz(hourlydata$date)
     hourlydata$localdate <- as.character(lubridate::date(hourlydata$date))
-    hourlydata$localtime <- as.character(hourlydata$date)
+    hourlydata$localtime <- as.character(hourlydata$date,"%H%M%S")
     hourlydata$localdecimaltime <- lubridate::hour(hourlydata$date) + 
                                    lubridate::minute(hourlydata$date)/60 +
                                    lubridate::second(hourlydata$date)/3600
@@ -244,22 +272,101 @@ hourly_localtimes <- function(hourlydata) {
 dailysummary <- function(hourlydata) {
 ###  make the R checker happy with utterly irrelevant initializations of variables used by dplyr
   weatherstation <- localdate <- temp <- precip <- gustratio <- rain <- NULL
-  wind_spd <- snow <- hail <- NULL
-  weather_daily <-  hourlydata %>%
+  wind_spd <- snow <- hail <- localtime <- minutes <-NULL
+  hourlyaugmented <- add_midnights(hourlydata)
+  weatherdaily <- hourlydata %>% 
+    dplyr::mutate(minutes=as.numeric(substr(localtime,3,4))) %>%    
     dplyr::group_by(weatherstation,localdate) %>%
     dplyr::summarize(min_temp=min(temp,na.rm=TRUE),
                      max_temp=max(temp,na.rm=TRUE),
-                    mean_temp=mean(temp,na.rm=TRUE),
-                    mean_windspd=mean(wind_spd,na.rm=TRUE),
-                    max_windspd=max(wind_spd,na.rm=TRUE),
-                    tot_precip=sum(precip,na.rm=TRUE),
-                    any_gust=any(gustratio>1.6,na.rm=TRUE),
-                    any_rain=any(rain>0,na.rm=TRUE),
-                    any_snow=any(snow>0,na.rm=TRUE),
-                    any_hail=any(hail>0,na.rm=TRUE))
-  return(weather_daily)
+                     mean_temp=weighted_mean(localtime,temp),
+                     max_windspd=max(wind_spd,na.rm=TRUE),
+                     mean_windspd=weighted_mean(localtime,wind_spd),
+                     num_hourly_readings=count_on_mode_minutes(localtime),
+                     tot_precip=total_on_mode_minutes(localtime,precip),
+                     any_gust=any(gustratio>1.6,na.rm=TRUE),
+                     any_rain=any(rain>0,na.rm=TRUE),
+                     any_snow=any(snow>0,na.rm=TRUE),
+                     any_hail=any(hail>0,na.rm=TRUE))
+
+  return(weatherdaily)
 }
 zip_history_range <- function(location,date_start,date_end,key) {
   if (substr(location,1,3)=="ZIP") location <- substr(location,4,nchar(location))
   return(rwunderground::history_range(location=location,date_start=date_start,date_end=date_end,key=key))
 }
+total_on_mode_minutes <- function(localtime,quantity) {
+  minutes <- as.numeric(substr(localtime,3,4))
+  return(sum(quantity[minutes==mode_minutes(localtime)],na.rm=TRUE))
+}
+count_on_mode_minutes <- function(localtime) {
+  minutes <- as.numeric(substr(localtime,3,4))
+  return(sum(minutes==mode_minutes(localtime)))
+}
+mode_minutes <- function(localtime) {
+  minutes <- as.numeric(substr(localtime,3,4))
+  return(pracma::Mode(minutes))
+}
+add_midnights <- function(hourlydata) {
+  ###  make the R checker happy with utterly irrelevant initializations of variables used by dplyr
+  weatherstation <- localdate <- localtime <- NULL
+  
+  newmidnight <- hourlydata %>% dplyr::distinct(weatherstation,localdate) %>%
+                    dplyr::mutate(localtime="000000",
+                                  temp=NA,
+                                  wind_spd=NA) 
+  stationset <- unique(newmidnight$weatherstation)
+  for (x in length(stationset)) {
+    newvars <- interpolate_for_station(newmidnight,hourlydata)
+    newmidnight[newmidnight$weatherstaion==stationset[x],"temp"] <- newvars[["temp"]]
+    newmidnight[newmidnight$weatherstaion==stationset[x],"wind_spd"] <- newvars[["wind_spd"]]
+  }
+    
+  if (nrow(newmidnight)>1) {
+    endmidnight <- newmidnight[-1,]
+    endmidnight$localtime <- "240000"
+    endmidnight$localdate <- as.character(as.Date(endmidnight$localdate)-1)
+  } else {
+    endmidnight <- NULL
+  }
+  augmented_data <- dplyr::bind_rows(hourlydata,newmidnight,endmidnight) %>%
+                    dplyr::arrange(weatherstation,localdate,localtime)
+  return(augmented_data)
+}
+interpolate_for_station <- function(newtimedf,alldatadf) {
+  hourlydata <- alldatadf[alldatadf$weatherstation==newtimedf$weatherstation[1],]
+  timedf <- as.POSIXct(paste0(hourlydata$localdate," ",
+                              substr(hourlydata$localtime,1,2),":",
+                              substr(hourlydata$localtime,3,4),":",
+                              substr(hourlydata$localtime,5,6)),
+                       format = "%Y-%m-%d %H:%M:%S")
+  timenew <- as.POSIXct(paste0(newtimedf$localdate," ",
+                               substr(newtimedf$localtime,1,2),":",
+                               substr(newtimedf$localtime,3,4),":",
+                               substr(newtimedf$localtime,5,6)),
+                        format = "%Y-%m-%d %H:%M:%S")
+  new_temp <- stats::approx(timedf, y = hourlydata$temp, 
+                                 xout = timenew,rule=2)[[2]]
+  new_wind <- stats::approx(timedf, y = hourlydata$wind_spd, 
+                                 xout = timenew,rule=2)[[2]]
+  return(list(temp=new_temp,wind_spd=new_wind))
+}
+weighted_mean <- function(localtime,quantity) {
+  localtime <- localtime[!is.na(quantity)]
+  quantity <- quantity[!is.na(quantity)]
+  lagtime <- c(localtime[1],localtime[-length(localtime)])
+  leadtime <- c(localtime[-1],localtime[length(localtime)])
+  return(sum(elapsed_time(leadtime,lagtime)*quantity)/
+           sum(elapsed_time(leadtime,lagtime)))
+}
+elapsed_time <- function(leadtime,lagtime) {
+  return(as.numeric(substr(leadtime,1,2))+
+         as.numeric(substr(leadtime,3,4))/60+
+         as.numeric(substr(leadtime,5,6))/3600-
+         as.numeric(substr(lagtime,1,2))-
+         as.numeric(substr(lagtime,3,4))/60-
+         as.numeric(substr(lagtime,5,6))/3600
+  )
+}
+
+

@@ -25,9 +25,15 @@ interval.  If not specified, the current Sys.Date() is used.}
 updates directory, so that data fetched can be re-used.}
 }
 \value{
-A list containing two dataframes.  One contains approximately hourly measures
+A la list containing two dataframes.  One contains approximately hourly measures
   of temperature, precipitation, wind, etc, along with time and weatherstation id. 
-  The other contains daily mins, max, and totals for the things in the hourly reports.
+  The other contains daily mins, max, means and totals for the things in the hourly 
+  reports.  Mins and maxs are based on all daily observations plus interpolated 
+  values for midnight (local time) at the beginning and end of the day.  Means are
+  based on data plus the midnight interpolations, weighted by the elapsed time between
+  them.  Precip totals are the sum of hourly precip totals over those observations 
+  which are taken at the most common time after the hour, for many stations that is 53
+  minutes after the hour.
 }
 \description{
 \code{update_weatherdata} Fetch the necessary data from wunderground,

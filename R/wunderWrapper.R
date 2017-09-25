@@ -15,7 +15,9 @@
 #'
 #' @importFrom rwunderground history_range get_api_key
 #' @importFrom lubridate second minute hour tz date
-#' @importFrom dplyr bind_rows anti_join arrange group_by
+#' @importFrom dplyr bind_rows anti_join arrange group_by distinct
 #' @importFrom magrittr %>%
+#' @importFrom pracma Mode
+#' @importFrom stats approx
 #' @name wunderWrapper
 NULL

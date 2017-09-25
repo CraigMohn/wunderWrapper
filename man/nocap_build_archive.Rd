@@ -4,17 +4,19 @@
 \alias{nocap_build_archive}
 \title{Fetch data for a specific station for a range of dates}
 \usage{
-nocap_build_archive(weatherstation, year, quarter = 0, daystart = "",
+nocap_build_archive(weatherstation, year, quarter = "", daystart = "",
   dayend = "", archive.dir = "")
 }
 \arguments{
-\item{weatherstation}{string containing weatherstation. if specifying an all-numeric
-station id, precede the digits with "ZIP".}
+\item{weatherstation}{string containing weatherstation. If specifying an all-numeric
+station id, precede the digits with "ZIP", if specifying a personal weatherstion id, 
+precede the id with "pws:".}
 
 \item{year}{numeric 4 digit year for desired data.}
 
-\item{quarter}{if numeric: 0 = whole year, 1-4= quarter. if a string, use daystart 
-and dayend and name file using the string.}
+\item{quarter}{if numeric: 0 = whole year, 1-4= quarter. If a string, use daystart 
+and dayend and include the string in the names of the archive filename and dataframe
+created.}
 
 \item{daystart}{string containing 4-digit "MMDD" date for first date requested.}
 
@@ -25,7 +27,13 @@ and dayend and name file using the string.}
 \value{
 a list containing two dataframes.  One contains approximately hourly measures
   of temperature, precipitation, wind, etc, along with time and weatherstation id. 
-  The other contains daily mins, max, and totals for the things in the hourly reports.
+  The other contains daily mins, max, means and totals for the things in the hourly 
+  reports.  Mins and maxs are based on all daily observations plus interpolated 
+  values for midnight (local time) at the beginning and end of the day.  Means are
+  based on data plus the midnight interpolations, weighted by the elapsed time between
+  them.  Precip totals are the sum of hourly precip totals over those observations 
+  which are taken at the most common time after the hour, for many stations that is 53
+  minutes after the hour.
 }
 \description{
 \code{nocap_build_archive} Fetch hourly data for a date range for a specific station.  

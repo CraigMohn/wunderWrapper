@@ -12,9 +12,15 @@ rebuild_weather(archive.dir, update.dir = "")
 \item{update.dir}{string containing the locally-archived wunderground data updates directory.}
 }
 \value{
-A list containing two dataframes.  One contains approximately hourly measures
+a list containing two dataframes.  One contains approximately hourly measures
   of temperature, precipitation, wind, etc, along with time and weatherstation id. 
-  Th other contains daily mins, max, and totals for the things in the hourly reports.
+  The other contains daily mins, max, means and totals for the things in the hourly 
+  reports.  Mins and maxs are based on all daily observations plus interpolated 
+  values for midnight (local time) at the beginning and end of the day.  Means are
+  based on data plus the midnight interpolations, weighted by the elapsed time between
+  them.  Precip totals are the sum of hourly precip totals over those observations 
+  which are taken at the most common time after the hour, for many stations that is 53
+  minutes after the hour.
 }
 \description{
 \code{rebuild_weather} Read in all of the archived and stored updates for  

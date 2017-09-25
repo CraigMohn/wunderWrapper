@@ -9,7 +9,7 @@ Depends: R (>= 2.15.0)
 Description: Request historic weather data from wunderground.com using their API interface.  This 
   interface requires a key, which has daily and per minute query limits.  Retrieved data is saved
   for future use.
-Imports: rwunderground, dplyr, lubridate, magrittr
+Imports: rwunderground, dplyr, lubridate, magrittr, pracma
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
