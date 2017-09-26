@@ -75,7 +75,7 @@ nocap_build_archive <- function(weatherstation,
   Sys.sleep(60)
   wdata <- zip_history_range(location=weatherstation,date_start=date_start,
                              date_end=date_end,key=get_api_key())
-  wdata$weatherstation <- nameweatherstation
+  if (nrow(wdata)>0) wdata$weatherstation <- nameweatherstation
   assign(paste0(nameweatherstation,"_",year,qstr),wdata)
   save(list=paste0(nameweatherstation,"_",year,qstr),file=paste0(nameweatherstation,"_",year,qstr,".rda"))                   
   return(wdata)
@@ -198,7 +198,7 @@ update_weatherdata <- function(weatherpair,weatherstation,begin.date=NA,end.date
                                     update.dir="") {
 ###  make the R checker happy with utterly irrelevant initializations of variables used by dplyr
   localtime <- localdate <- NULL
-  nameweatherstation <- gsub("psw:","",weatherstation)
+  nameweatherstation <- gsub("pws:","",weatherstation)
   weatherdata <- weatherpair[["hourly"]]
   weatherdaily <- weatherpair[["daily"]]
   station_data <- weatherdata[weatherdata$weatherstation==nameweatherstation,]
@@ -317,9 +317,10 @@ add_midnights <- function(hourlydata) {
                                   wind_spd=NA) 
   stationset <- unique(newmidnight$weatherstation)
   for (x in length(stationset)) {
-    newvars <- interpolate_for_station(newmidnight,hourlydata)
-    newmidnight[newmidnight$weatherstaion==stationset[x],"temp"] <- newvars[["temp"]]
-    newmidnight[newmidnight$weatherstaion==stationset[x],"wind_spd"] <- newvars[["wind_spd"]]
+    newmidnightstation <- newmidnight[newmidnight$weatherstation==stationset[x],]
+    newvars <- interpolate_for_station(newmidnightstation,hourlydata)
+    newmidnight[newmidnight$weatherstation==stationset[x],"temp"] <- newvars[["temp"]]
+    newmidnight[newmidnight$weatherstation==stationset[x],"wind_spd"] <- newvars[["wind_spd"]]
   }
     
   if (nrow(newmidnight)>1) {
