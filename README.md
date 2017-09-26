@@ -5,4 +5,3 @@ These functions are wrappers for the rwunderground package, and allow users with
 
 Because it is a quick patch for my specific needs, the documentation is at best sparse, and probably doesn't answer your questions.  The daily summary probably doesn't contain the exact variable you want.  The code is pretty simple.  
 
-High priority issue - need to do better weighted averaging when more than 24 observations at a station in a day for mean and total quantities.
