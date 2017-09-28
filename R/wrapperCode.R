@@ -149,7 +149,8 @@ rebuild_weather <- function(archive.dir,update.dir="") {
     }  
     setwd(old_wd)
   }
-  weather_hourly <- weather_hourly %>%  dplyr::arrange(weatherstation,date)  
+  weather_hourly <- clean_hourly_data(weather_hourly) %>%  
+                    dplyr::arrange(weatherstation,date)  
   weather_daily <-  dailysummary(weather_hourly)
   return(list(daily=weather_daily,hourly=weather_hourly))
 }
@@ -227,7 +228,8 @@ update_weatherdata <- function(weatherpair,weatherstation,begin.date=NA,end.date
     new_data <- zip_history_range(location=weatherstation,date_start=begin.date,
                               date_end=end.date,key=rwunderground::get_api_key())
     new_data$weatherstation <- nameweatherstation
-    new_data_local <- hourly_localtimes(new_data)
+    new_data_local <- clean_hourly_data(new_data)
+    new_data_local <- hourly_localtimes(new_data_local)
     new_daily <- dailysummary(new_data_local)
     
     if (update.dir!="") {
@@ -369,5 +371,30 @@ elapsed_time <- function(leadtime,lagtime) {
          as.numeric(substr(lagtime,5,6))/3600
   )
 }
-
+clean_hourly_data <- function(df) {
+  ###  make the R checker happy with utterly irrelevant initializations of variables used by dplyr
+  temp <- dew_pt <- hum <- wind_spd <- wind_gust <- vis <- precip <- NULL
+  pressure <- wind_chill <- heat_index <- NULL
+  return(df %>%
+         dplyr::mutate(temp=replace(temp, which(temp < -50), NA),
+                       dew_pt=replace(dew_pt, which(dew_pt < 30), NA),
+                       hum=replace(hum, which(hum < 0), NA),
+                       hum=replace(hum, which(hum > 100), NA),
+                       wind_spd=replace(wind_spd, which(wind_spd < 0), NA),
+                       wind_spd=replace(wind_spd, which(wind_spd > 80), NA),
+                       wind_gust=replace(wind_gust, which(wind_gust < 0), NA),
+                       wind_gust=replace(wind_gust, which(wind_gust > 100), NA),
+                       vis=replace(vis, which(vis < 0), NA),
+                       vis=replace(vis, which(vis > 50), NA),
+                       pressure=replace(pressure, which(pressure < 20), NA),
+                       pressure=replace(pressure, which(pressure > 50), NA),
+                       wind_chill=replace(wind_chill, which(wind_chill < -50), NA),
+                       wind_chill=replace(wind_chill, which(wind_chill > 70), NA),
+                       heat_index=replace(heat_index, which(heat_index < 0), NA),
+                       heat_index=replace(heat_index, which(heat_index > 120), NA),
+                       precip=replace(precip, which(precip < 0), NA),
+                       precip=replace(precip, which(precip > 2), NA)
+         )
+  )
+}
 
