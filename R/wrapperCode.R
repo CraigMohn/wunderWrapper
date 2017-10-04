@@ -396,14 +396,8 @@ add_midnights <- function(hourlydata) {
 interpolate_for_station <- function(newtimedf,alldatadf) {
   hourlydata <- alldatadf[alldatadf$weatherstation==newtimedf$weatherstation[1],]
   timedf <- as.POSIXct(paste0(hourlydata$localdate," ",hourlydata$localtime),
-                              substr(hourlydata$localtime,1,2),":",
-                              substr(hourlydata$localtime,3,4),":",
-                              substr(hourlydata$localtime,5,6)),
                        format = "%Y%m%d %H%M%S")
   timenew <- as.POSIXct(paste0(newtimedf$localdate," ",newtimedf$localtime),
-                               substr(newtimedf$localtime,1,2),":",
-                               substr(newtimedf$localtime,3,4),":",
-                               substr(newtimedf$localtime,5,6)),
                         format = "%Y%m%d %H%M%S")
   new_temp <- stats::approx(timedf, y = hourlydata$temp, 
                                  xout = timenew,rule=2)[[2]]
@@ -426,32 +420,6 @@ elapsed_time <- function(leadtime,lagtime) {
          as.numeric(substr(lagtime,1,2))-
          as.numeric(substr(lagtime,3,4))/60-
          as.numeric(substr(lagtime,5,6))/3600
-  )
-}
-clean_hourly_data <- function(df) {
-  ###  make the R checker happy with utterly irrelevant initializations of variables used by dplyr
-  temp <- dew_pt <- hum <- wind_spd <- wind_gust <- vis <- precip <- NULL
-  pressure <- wind_chill <- heat_index <- NULL
-  return(df %>%
-         dplyr::mutate(temp=replace(temp, which(temp < -50), NA),
-                       dew_pt=replace(dew_pt, which(dew_pt < 30), NA),
-                       hum=replace(hum, which(hum < 0), NA),
-                       hum=replace(hum, which(hum > 100), NA),
-                       wind_spd=replace(wind_spd, which(wind_spd < 0), NA),
-                       wind_spd=replace(wind_spd, which(wind_spd > 80), NA),
-                       wind_gust=replace(wind_gust, which(wind_gust < 0), NA),
-                       wind_gust=replace(wind_gust, which(wind_gust > 100), NA),
-                       vis=replace(vis, which(vis < 0), NA),
-                       vis=replace(vis, which(vis > 50), NA),
-                       pressure=replace(pressure, which(pressure < 20), NA),
-                       pressure=replace(pressure, which(pressure > 50), NA),
-                       wind_chill=replace(wind_chill, which(wind_chill < -50), NA),
-                       wind_chill=replace(wind_chill, which(wind_chill > 70), NA),
-                       heat_index=replace(heat_index, which(heat_index < 0), NA),
-                       heat_index=replace(heat_index, which(heat_index > 120), NA),
-                       precip=replace(precip, which(precip < 0), NA),
-                       precip=replace(precip, which(precip > 2), NA)
-         )
   )
 }
 
