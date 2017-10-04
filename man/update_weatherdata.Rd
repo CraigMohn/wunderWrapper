@@ -5,7 +5,7 @@
 \title{Update weatherdata pair with new data from wunderground}
 \usage{
 update_weatherdata(weatherpair, weatherstation, begin.date = NA,
-  end.date = NA, update.dir = "")
+  end.date = NA, update.dir = "", ...)
 }
 \arguments{
 \item{weatherpair}{a 2 item list containing the hourly and daily dataframes}
@@ -23,6 +23,8 @@ interval.  If not specified, the current Sys.Date() is used.}
 
 \item{update.dir}{string containing the locally-archived wunderground data 
 updates directory, so that data fetched can be re-used.}
+
+\item{...}{validity limit variables for data cleaning}
 }
 \value{
 A la list containing two dataframes.  One contains approximately hourly measures
@@ -51,5 +53,5 @@ and the local Time and Date as character strings reflecting the time at the site
 regardless of your tz settings.
 }
 \seealso{
-\code{\link{rebuild_weather}}
+\code{\link{rebuild_weather}}     \code{\link{clean_hourly_data}}
 }

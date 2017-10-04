@@ -4,12 +4,14 @@
 \alias{rebuild_weather}
 \title{Pull together the weather archive files and stored updates}
 \usage{
-rebuild_weather(archive.dir, update.dir = "")
+rebuild_weather(archive.dir, update.dir = "", ...)
 }
 \arguments{
 \item{archive.dir}{string containing the locally-archived wunderground data directory.}
 
 \item{update.dir}{string containing the locally-archived wunderground data updates directory.}
+
+\item{...}{validity limit variables for data cleaning}
 }
 \value{
 a list containing two dataframes.  One contains approximately hourly measures
@@ -37,5 +39,5 @@ and the local Time and Date as character strings reflecting the time at the site
 your tz settings.
 }
 \seealso{
-\code{\link{update_weatherdata}}
+\code{\link{update_weatherdata}}     \code{\link{clean_hourly_data}}
 }

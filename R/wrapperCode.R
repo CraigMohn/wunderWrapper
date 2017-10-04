@@ -27,7 +27,7 @@
 #'   which are taken at the most common time after the hour, for many stations that is 53
 #'   minutes after the hour.
 #'   
-#' @seealso \code{\link{update_weatherdata}}
+#' @seealso \code{\link{update_weatherdata}}    \code{\link{rebuild_weather}}
 #'
 #' @export
 nocap_build_archive <- function(weatherstation,
@@ -97,6 +97,7 @@ nocap_build_archive <- function(weatherstation,
 #'
 #' @param archive.dir string containing the locally-archived wunderground data directory.
 #' @param update.dir string containing the locally-archived wunderground data updates directory.
+#' @param ... validity limit variables for data cleaning
 #'
 #' @return a list containing two dataframes.  One contains approximately hourly measures
 #'   of temperature, precipitation, wind, etc, along with time and weatherstation id. 
@@ -107,11 +108,11 @@ nocap_build_archive <- function(weatherstation,
 #'   them.  Precip totals are the sum of hourly precip totals over those observations 
 #'   which are taken at the most common time after the hour, for many stations that is 53
 #'   minutes after the hour.
-#'
-#' @seealso \code{\link{update_weatherdata}}
+#' 
+#' @seealso \code{\link{update_weatherdata}}     \code{\link{clean_hourly_data}}
 #'
 #' @export
-rebuild_weather <- function(archive.dir,update.dir="") {
+rebuild_weather <- function(archive.dir,update.dir="",...) {
 ###  make the R checker happy with utterly irrelevant initializations of variables used by dplyr
   weatherstation <- weatherupdate <- NULL
   
@@ -149,8 +150,9 @@ rebuild_weather <- function(archive.dir,update.dir="") {
     }  
     setwd(old_wd)
   }
-  weather_hourly <- clean_hourly_data(weather_hourly) %>%  
+  weather_hourly <- clean_hourly_data(weather_hourly,...) %>%  
                     dplyr::arrange(weatherstation,date)  
+weather_h <<- weather_hourly
   weather_daily <-  dailysummary(weather_hourly)
   return(list(daily=weather_daily,hourly=weather_hourly))
 }
@@ -181,6 +183,7 @@ rebuild_weather <- function(archive.dir,update.dir="") {
 #'   interval.  If not specified, the current Sys.Date() is used.
 #' @param update.dir string containing the locally-archived wunderground data 
 #'   updates directory, so that data fetched can be re-used.
+#' @param ... validity limit variables for data cleaning
 #'
 #' @return A la list containing two dataframes.  One contains approximately hourly measures
 #'   of temperature, precipitation, wind, etc, along with time and weatherstation id. 
@@ -192,11 +195,11 @@ rebuild_weather <- function(archive.dir,update.dir="") {
 #'   which are taken at the most common time after the hour, for many stations that is 53
 #'   minutes after the hour.
 #'
-#' @seealso \code{\link{rebuild_weather}}
+#' @seealso \code{\link{rebuild_weather}}     \code{\link{clean_hourly_data}}
 #'
 #' @export
 update_weatherdata <- function(weatherpair,weatherstation,begin.date=NA,end.date=NA,
-                                    update.dir="") {
+                                    update.dir="",...) {
 ###  make the R checker happy with utterly irrelevant initializations of variables used by dplyr
   localtime <- localdate <- NULL
   nameweatherstation <- gsub("pws:","",weatherstation)
@@ -228,7 +231,7 @@ update_weatherdata <- function(weatherpair,weatherstation,begin.date=NA,end.date
     new_data <- zip_history_range(location=weatherstation,date_start=begin.date,
                               date_end=end.date,key=rwunderground::get_api_key())
     new_data$weatherstation <- nameweatherstation
-    new_data_local <- clean_hourly_data(new_data)
+    new_data_local <- clean_hourly_data(new_data,...)
     new_data_local <- hourly_localtimes(new_data_local)
     new_daily <- dailysummary(new_data_local)
     
@@ -256,12 +259,66 @@ update_weatherdata <- function(weatherpair,weatherstation,begin.date=NA,end.date
   }
   return(list(daily=weatherdaily,hourly=weatherdata))
 }
+#' Remove data measurements that are outside of credible ranges
+#'
+#' \code{clean_hourly_data} Filter out extreme and implausible values from retrieved
+#'   weather data.  Most limits are user parametrizable, although precip and wind speeds
+#'   are rejected if nonpositive, and visibility and humidity are restricted to be 
+#'   between 0 and 100.
+#'
+#' @param df dataframe with the weather data.
+#' @param temp.min numeric temperatures below this will be set to NA.
+#' @param temp.max numeric temperatures above this will be set to NA.
+#' @param wind_spd.max numeric wind speeds above this will be set to NA.
+#' @param wind_gust.max numeric wind speeds above this will be set to NA.
+#' @param precip.max numeric precip above this will be set to NA.
+#' @param pressure.min numeric pressure below this will be set to NA.
+#' @param pressure.max numeric pressure above this will be set to NA.
+#' @param wind_chill.min numeric wind chill below this will be set to NA.
+#' @param wind_chill.max numeric wind chill above this will be set to NA.
+#' @param heat_index.min numeric heat index below this will be set to NA.
+#' @param heat_index.max numeric heat index above this will be set to NA.
+#'
+#' @return dataframe with extreme values set to NA
+#'   
+#' @seealso \code{\link{update_weatherdata}} \code{\link{rebuild_weather}}
+#'
+#' @export
+clean_hourly_data <- function(df,temp.min=-50,temp.max=130,wind_spd.max=80,wind_gust.max=120,
+                              pressure.min=20,pressure.max=50,wind_chill.min=-50,wind_chill.max=70,
+                              heat_index.min=50,heat_index.max=150,precip.max=2) {
+  ###  make the R checker happy with utterly irrelevant initializations of variables used by dplyr
+  temp <- dew_pt <- hum <- wind_spd <- wind_gust <- vis <- precip <- NULL
+  pressure <- wind_chill <- heat_index <- NULL
+  return(df %>%
+           dplyr::mutate(temp=replace(temp, which(temp < temp.min), NA),
+                         temp=replace(temp, which(temp > temp.max), NA),
+                         dew_pt=replace(dew_pt, which(dew_pt < 30), NA),
+                         hum=replace(hum, which(hum < 0), NA),
+                         hum=replace(hum, which(hum > 100), NA),
+                         wind_spd=replace(wind_spd, which(wind_spd < 0), NA),
+                         wind_spd=replace(wind_spd, which(wind_spd > wind_spd.max), NA),
+                         wind_gust=replace(wind_gust, which(wind_gust < 0), NA),
+                         wind_gust=replace(wind_gust, which(wind_gust > wind_gust.max), NA),
+                         vis=replace(vis, which(vis < 0), NA),
+                         vis=replace(vis, which(vis > 100), NA),
+                         pressure=replace(pressure, which(pressure < pressure.min), NA),
+                         pressure=replace(pressure, which(pressure > pressure.max), NA),
+                         wind_chill=replace(wind_chill, which(wind_chill < wind_chill.min), NA),
+                         wind_chill=replace(wind_chill, which(wind_chill > wind_chill.max), NA),
+                         heat_index=replace(heat_index, which(heat_index < heat_index.min), NA),
+                         heat_index=replace(heat_index, which(heat_index > heat_index.max), NA),
+                         precip=replace(precip, which(precip < 0), NA),
+                         precip=replace(precip, which(precip > precip.max), NA)
+           )
+  )
+}
 ######## internal use 
 ####################################################################################
 hourly_localtimes <- function(hourlydata) {
   if (!is.null(hourlydata)) {
     hourlydata$localtz <- lubridate::tz(hourlydata$date)
-    hourlydata$localdate <- as.character(lubridate::date(hourlydata$date))
+    hourlydata$localdate <- as.character(lubridate::date(hourlydata$date),"%Y%m%d")
     hourlydata$localtime <- as.character(hourlydata$date,"%H%M%S")
     hourlydata$localdecimaltime <- lubridate::hour(hourlydata$date) + 
                                    lubridate::minute(hourlydata$date)/60 +
@@ -328,7 +385,7 @@ add_midnights <- function(hourlydata) {
   if (nrow(newmidnight)>1) {
     endmidnight <- newmidnight[-1,]
     endmidnight$localtime <- "240000"
-    endmidnight$localdate <- as.character(as.Date(endmidnight$localdate)-1)
+    endmidnight$localdate <- as.character(as.Date(endmidnight$localdate,"%Y%m%d")-1,"%Y%m%d")
   } else {
     endmidnight <- NULL
   }
@@ -338,16 +395,16 @@ add_midnights <- function(hourlydata) {
 }
 interpolate_for_station <- function(newtimedf,alldatadf) {
   hourlydata <- alldatadf[alldatadf$weatherstation==newtimedf$weatherstation[1],]
-  timedf <- as.POSIXct(paste0(hourlydata$localdate," ",
+  timedf <- as.POSIXct(paste0(hourlydata$localdate," ",hourlydata$localtime),
                               substr(hourlydata$localtime,1,2),":",
                               substr(hourlydata$localtime,3,4),":",
                               substr(hourlydata$localtime,5,6)),
-                       format = "%Y-%m-%d %H:%M:%S")
-  timenew <- as.POSIXct(paste0(newtimedf$localdate," ",
+                       format = "%Y%m%d %H%M%S")
+  timenew <- as.POSIXct(paste0(newtimedf$localdate," ",newtimedf$localtime),
                                substr(newtimedf$localtime,1,2),":",
                                substr(newtimedf$localtime,3,4),":",
                                substr(newtimedf$localtime,5,6)),
-                        format = "%Y-%m-%d %H:%M:%S")
+                        format = "%Y%m%d %H%M%S")
   new_temp <- stats::approx(timedf, y = hourlydata$temp, 
                                  xout = timenew,rule=2)[[2]]
   new_wind <- stats::approx(timedf, y = hourlydata$wind_spd, 

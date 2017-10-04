@@ -43,5 +43,5 @@ a list containing two dataframes.  One contains approximately hourly measures
   in execution, so that you can't accidentally exceed the rate limit.
 }
 \seealso{
-\code{\link{update_weatherdata}}
+\code{\link{update_weatherdata}}    \code{\link{rebuild_weather}}
 }
