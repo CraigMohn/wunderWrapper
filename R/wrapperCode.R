@@ -152,7 +152,6 @@ rebuild_weather <- function(archive.dir,update.dir="",...) {
   }
   weather_hourly <- clean_hourly_data(weather_hourly,...) %>%  
                     dplyr::arrange(weatherstation,date)  
-weather_h <<- weather_hourly
   weather_daily <-  dailysummary(weather_hourly)
   return(list(daily=weather_daily,hourly=weather_hourly))
 }
