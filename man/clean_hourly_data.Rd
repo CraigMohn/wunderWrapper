@@ -4,13 +4,15 @@
 \alias{clean_hourly_data}
 \title{Remove data measurements that are outside of credible ranges}
 \usage{
-clean_hourly_data(df, temp.min = -50, temp.max = 130, wind_spd.max = 80,
-  wind_gust.max = 120, pressure.min = 20, pressure.max = 50,
-  wind_chill.min = -50, wind_chill.max = 70, heat_index.min = 50,
-  heat_index.max = 150, precip.max = 2)
+clean_hourly_data(df, fast = TRUE, temp.min = -50, temp.max = 130,
+  wind_spd.max = 80, wind_gust.max = 120, pressure.min = 20,
+  pressure.max = 50, wind_chill.min = -50, wind_chill.max = 70,
+  heat_index.min = 50, heat_index.max = 150, precip.max = 2)
 }
 \arguments{
 \item{df}{dataframe with the weather data.}
+
+\item{fast}{use first of duplicate station-time observations rather than mean()}
 
 \item{temp.min}{numeric temperatures below this will be set to NA.}
 

@@ -27,15 +27,15 @@ updates directory, so that data fetched can be re-used.}
 \item{...}{validity limit variables for data cleaning}
 }
 \value{
-A la list containing two dataframes.  One contains approximately hourly measures
+a list containing two dataframes.  One contains approximately hourly measures
   of temperature, precipitation, wind, etc, along with time and weatherstation id. 
   The other contains daily mins, max, means and totals for the things in the hourly 
   reports.  Mins and maxs are based on all daily observations plus interpolated 
   values for midnight (local time) at the beginning and end of the day.  Means are
   based on data plus the midnight interpolations, weighted by the elapsed time between
-  them.  Precip totals are the sum of hourly precip totals over those observations 
-  which are taken at the most common time after the hour, for many stations that is 53
-  minutes after the hour.
+  them.  If the data is for a time and place where Daylight Savings Time is in effect, 
+  there will be one 23 hour and one 25 hour day per year.  Precip totals are based on
+  the average hourly rainfall rate and a 24 hour day.
 }
 \description{
 \code{update_weatherdata} Fetch the necessary data from wunderground,
