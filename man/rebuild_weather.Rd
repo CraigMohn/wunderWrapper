@@ -11,7 +11,7 @@ rebuild_weather(archive.dir, update.dir = "", ...)
 
 \item{update.dir}{string containing the locally-archived wunderground data updates directory.}
 
-\item{...}{validity limit variables for data cleaning}
+\item{...}{validity limit variables for data cleaning by \code{\link{clean_hourly_data}}}
 }
 \value{
 a list containing two dataframes.  One contains approximately hourly measures
