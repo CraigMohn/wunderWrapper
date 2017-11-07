@@ -128,8 +128,9 @@ rebuild_weather <- function(archive.dir,update.dir="",...) {
       weather_hourly <- temp
     } else {
       weather_hourly <- dplyr::bind_rows(dplyr::anti_join(weather_hourly,temp,
-                                        by=c("weatherstation","localdate","localtime")),
-                                          temp)
+                                               #by=c("weatherstation","localdate","localtime")),
+                                               by=c("weatherstation","date")),
+                                         temp)
     }
   }  
   setwd(old_wd)
@@ -143,7 +144,7 @@ rebuild_weather <- function(archive.dir,update.dir="",...) {
       load(x)
       temp <- hourly_localtimes(weatherupdate)
       weather_hourly <- dplyr::bind_rows(dplyr::anti_join(weather_hourly,temp,
-                                             by=c("weatherstation","localdate","localtime")),
+                                             by=c("weatherstation","date")),
                                          temp)
     }  
     setwd(old_wd)
@@ -237,8 +238,8 @@ update_weatherdata <- function(weatherpair,weatherstation,begin.date=NA,end.date
   new_data <- zip_history_range(location=weatherstation,date_start=begin.date,
                               date_end=end.date,key=rwunderground::get_api_key())
   new_data$weatherstation <- nameweatherstation
-  new_data_local <- clean_hourly_data(new_data,...)
-  new_data_local <- hourly_localtimes(new_data_local)
+  new_data_local <- hourly_localtimes(new_data)
+  new_data_local <- clean_hourly_data(new_data_local,...)
   new_daily <- dailysummary(bind_rows(hourlybefore,new_data_local))
   if (!is.na(daybefore)) new_daily <- new_daily[new_daily$localdate != daybefore,]
     
@@ -293,12 +294,12 @@ update_weatherdata <- function(weatherpair,weatherstation,begin.date=NA,end.date
 #' @seealso \code{\link{update_weatherdata}} \code{\link{rebuild_weather}}
 #'
 #' @export
-clean_hourly_data <- function(df,fast=TRUE,temp.min=-50,temp.max=130,
+clean_hourly_data <- function(df,fast=FALSE,temp.min=-50,temp.max=130,
                               wind_spd.max=80,wind_gust.max=120,
                               pressure.min=20,pressure.max=50,
                               wind_chill.min=-50,wind_chill.max=70,
                               heat_index.min=50,heat_index.max=150,precip.max=2) {
-  temp <- df %>%
+  temp <- unique(df) %>%
     dplyr::select(-dir,-cond)%>%
     dplyr::mutate(precip=replace(precip, which(is.na(precip)), 0),
                   wind_gust=replace(wind_gust, which(is.na(wind_gust)), 0)) %>%
@@ -321,35 +322,54 @@ clean_hourly_data <- function(df,fast=TRUE,temp.min=-50,temp.max=130,
                   heat_index=replace(heat_index, which(heat_index > heat_index.max), NA),
                   precip=replace(precip, which(precip < 0), NA),
                   precip=replace(precip, which(precip > precip.max), NA) 
-    ) 
+    )
   if (fast) {
     # 3s timing on sample dataset
-    return(temp %>% dplyr::distinct(weatherstation,date,.keep_all=TRUE))
+    return(temp %>% dplyr::distinct(weatherstation,date,.keep_all=TRUE)%>%
+                    dplyr::arrange(weatherstation,date,localdate,localtime))
   } else { 
+    singles <-  temp %>% 
+      dplyr::group_by(weatherstation,date) %>% 
+      dplyr::filter(n()==1)
+  dplyr::group_by(weatherstation,date) %>% 
+  dplyr::filter(n()>1) 
     return(temp %>% 
-             # 263s beats dplyr::summarize_all which takes 1109s on same data
              dplyr::group_by(weatherstation,date) %>% 
+             dplyr::filter(n()>1) %>%
              dplyr::summarize(temp=mean(temp,na.rm=TRUE),
                               dew_pt=mean(dew_pt,na.rm=TRUE),
                               hum=mean(hum,na.rm=TRUE),
                               wind_spd=mean(wind_spd,na.rm=TRUE),
-                              wind_gust=max(wind_gust,na.rm=TRUE),
+                              wind_gust=max(max(wind_gust,na.rm=TRUE),0),
                               vis=mean(vis,na.rm=TRUE),
                               pressure=mean(pressure,na.rm=TRUE),
                               wind_chill=mean(wind_chill,na.rm=TRUE),
                               heat_index=mean(heat_index,na.rm=TRUE),
                               precip=mean(precip,na.rm=TRUE),
-                              fog=max(fog,na.rm=TRUE),
-                              rain=max(rain,na.rm=TRUE),
-                              snow=max(snow,na.rm=TRUE),
-                              hail=max(hail,na.rm=TRUE),
-                              thunder=max(thunder,na.rm=TRUE),
-                              tornado=max(tornado,na.rm=TRUE),
+                              fog=max(max(fog,na.rm=TRUE),0),
+                              rain=max(max(rain,na.rm=TRUE),0),
+                              snow=max(max(snow,na.rm=TRUE),0),
+                              hail=max(max(hail,na.rm=TRUE),0),
+                              thunder=max(max(thunder,na.rm=TRUE),0),
+                              tornado=max(max(tornado,na.rm=TRUE),0),
+                              localdecimaltime <- first(localdecimaltime),
                               localtime=dplyr::first(localtime),
                               localdate=dplyr::first(localdate),
                               localtz=dplyr::first(localtz)
              ) %>%
-             dplyr::ungroup()
+             dplyr::mutate(temp=replace(temp, is.nan(temp), NA),
+                           hum=replace(hum, is.nan(hum), NA),
+                           wind_spd=replace(wind_spd, is.nan(wind_spd), NA),
+                           vis=replace(vis, is.nan(vis), NA),
+                           pressure=replace(pressure, is.nan(pressure), NA),
+                           wind_chill=replace(wind_chill, is.nan(wind_chill), NA),
+                           heat_index=replace(heat_index, is.nan(heat_index), NA),
+                           precip=replace(precip, is.nan(precip), NA)
+             ) %>%
+             dplyr::ungroup() %>%
+             dplyr::bind_rows(singles) %>%
+             dplyr::arrange(weatherstation,date,localdate,localtime)
+           
     )
   }
 }
@@ -407,10 +427,10 @@ dailysummary <- function(hourlydata) {
     dplyr::mutate(minutes=as.numeric(substr(localtime,3,4))) %>%    
     dplyr::group_by(weatherstation,localdate) %>%
     # use the data that's there - min, max, weighted_mean_rate*24
-    dplyr::summarize(min_temp=min(temp,na.rm=TRUE),
-                     max_temp=max(temp,na.rm=TRUE),
+    dplyr::summarize(min_temp=min(min(temp,na.rm=TRUE),0),
+                     max_temp=max(max(temp,na.rm=TRUE),0),
                      mean_temp=weighted_mean(date,temp),
-                     max_windspd=max(wind_spd,na.rm=TRUE),
+                     max_windspd=max(max(wind_spd,na.rm=TRUE),0),
                      mean_windspd=weighted_mean(date,wind_spd),
                      num_hourly_readings=count_on_mode_minutes(localtime),
                      tot_precip=weighted_mean(date,precip)*24,
@@ -424,6 +444,7 @@ zip_history_range <- function(location,date_start,date_end,key) {
   if (substr(location,1,3)=="ZIP") location <- substr(location,4,nchar(location))
   df <- rwunderground::history_range(location=location,date_start=date_start,
                                      date_end=date_end,key=key)
+  df$fetchtime <- Sys.time()
   return(df)
 }
 count_on_mode_minutes <- function(localtime) {

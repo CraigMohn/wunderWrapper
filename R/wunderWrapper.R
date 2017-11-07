@@ -15,7 +15,7 @@
 #'
 #' @importFrom rwunderground history_range get_api_key
 #' @importFrom lubridate second minute hour tz date with_tz days ymd
-#' @importFrom dplyr bind_rows anti_join arrange group_by distinct first funs lag
+#' @importFrom dplyr bind_rows anti_join arrange group_by distinct first funs lag n
 #' @importFrom magrittr %>%
 #' @importFrom pracma Mode
 #' @importFrom stats approx
