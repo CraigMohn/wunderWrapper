@@ -191,3 +191,75 @@ update_weatherdata <- function(weatherpair,weatherstation,begin.date=NA,end.date
   return(list(daily=weatherdaily,hourly=weatherdata))
 }
 
+#' Merge two dataframes of location data, keeping most recently scraped data
+#'
+#' \code{merge_location_data} Given two data frames, group observations, then 
+#'   select which dataset to use based on rank.
+#'
+#' @param df1 data frame of archived wunderground data.
+#' @param df2 data frame of archived wunderground data.
+#' @param byvar variable to group by in choosing data from df1 and df2.
+#' @param rankvar variable to use in choosing data from df1 and df2.
+#' @param sortvar variable to sort results by.
+#'
+#' @return a dataframe containing data from df1 and df2, where data is 
+#'   included rom the dataframe which has the largest rankvar if the 
+#'   same byvar group is present in both data frames, or if it is only in 
+#'   one of df1 or df2.
+#'   
+#' @seealso \code{\link{update_weatherdata}}    \code{\link{nocap_build_archive}}
+#'
+#' @export
+merge_location_data <- function(df1,df2,byvar="localdate",
+                              rankvar="fetchtime",sortvar="date") {
+  if (df1$weatherstation[1] != df2$weatherstation[1]) 
+    stop("cannot merge different locations")
+  addld1 <- addld2 <- FALSE
+  if (!(rankvar %in% names(df1)))  df1[[rankvar]] <- NA
+  if (!(rankvar %in% names(df2)))  df2[[rankvar]] <- NA
+  if (missing(byvar)) {
+    if (!(byvar %in% names(df1))) {
+      addld1 <- TRUE
+      df1$localdate <- as.character(lubridate::date(df1$date),"%Y%m%d")
+    }
+    if (!(byvar %in% names(df2))) {
+      addld2 <- TRUE
+      df2$localdate <- as.character(lubridate::date(df2$date),"%Y%m%d")
+    }
+  }
+  if (lubridate::is.POSIXct(df1[[rankvar]]) | 
+      lubridate::is.POSIXct(df2[[rankvar]])) {
+    df1 <- force_POSIX_dfvar(df1,rankvar)
+    df2 <- force_POSIX_dfvar(df2,rankvar)
+  } else {
+    df1[is.na(df1[[rankvar]]),rankvar] <- -Inf
+    df2[is.na(df2[[rankvar]]),rankvar] <- -Inf
+  }
+  flag1 <- df1 %>%
+    dplyr::select(c(byvar,rankvar)) %>%
+    dplyr::group_by_(byvar) %>%
+    dplyr::summarize_all(c("max"))
+  names(flag1) <- gsub(rankvar,"rank1",names(flag1))
+  flag2 <- df2 %>%
+    dplyr::select(c(byvar,rankvar)) %>%
+    dplyr::group_by_(byvar) %>%
+    dplyr::summarize_all(c("max"))
+  names(flag2) <- gsub(rankvar,"rank2",names(flag2))
+  flag1a <- left_join(flag1,flag2,by=byvar) 
+  flag1a$from1 <- is.na(flag1a$rank2) | (flag1a$rank1 >= flag1a$rank2)
+  flag1a <- dplyr::select(flag1a,dplyr::one_of(byvar,"from1"))
+  flag2a <- right_join(flag1,flag2,by=byvar) 
+  flag2a$from2 <- is.na(flag2a$rank1) | (flag2a$rank2 > flag2a$rank1)
+  flag2a <- dplyr::select(flag2a,dplyr::one_of(byvar,"from2"))
+  df1 <- df1 %>% dplyr::left_join(flag1a,by=byvar)
+  df1 <- df1[df1$from1,] 
+  df1$from1 <- NULL
+  df2 <- df2 %>% dplyr::left_join(flag2a,by=byvar)
+  df2 <- df2[df2$from2,] 
+  df2$from2 <- NULL
+  if (addld1) df1 <- dplyr::select(df1,-dplyr::one_of(byvar))
+  if (addld2) df2 <- dplyr::select(df2,-dplyr::one_of(byvar))
+  return(dplyr::bind_rows(df1,df2) %>%
+           dplyr::arrange_(sortvar)  )
+}
+

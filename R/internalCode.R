@@ -183,26 +183,40 @@ collapse_dups <- function(df) {
   #}
   return(outdf)
 }
-##  lists of variables processed by code
-##    Do not export, avoid namespace pollution!
-##    "date" contains a POSIXct time-date
-varnames_keys <- function(){
-  return(c("weatherstation","date"))
+
+merge_hourly_data <- function(dfbig,dfoneloc) {
+
+   loc <- unique(dfoneloc$weatherstation)
+   if (length(loc) > 1) {
+     print(unique(dfoneloc$weatherstation))
+     stop("multiple locations in merged dataset")
+   }
+   sameloc <- dfbig[dfbig$weatherstation==loc,]
+   otherloc <- dfbig[dfbig$weatherstation!=loc,]
+   if (nrow(sameloc) == 0) {
+     allsameloc <- dfoneloc
+   } else {
+     allsameloc <- merge_location_data(sameloc,dfoneloc,byvar="localdate",
+                                       rankvar="fetchtime",sortvar="date") 
+   } 
+   allsameloc <- force_POSIX_dfvar(allsameloc,"fetchtime")
+   if (nrow(otherloc)>0) otherloc <- force_POSIX_dfvar(otherloc,"fetchtime")
+   return(
+      allsameloc %>%
+      dplyr::bind_rows(otherloc) %>%
+      dplyr::arrange(weatherstation,date)
+   ) 
+}  
+
+force_POSIX_dfvar <- function(df,varname,earlydate="1960-01-01")  {
+  if (lubridate::is.POSIXct(df[[varname]])) {
+    df[[varname]][is.na(df[[varname]])] <- as.POSIXct(earlydate)
+  } else {
+    #  tryCatch as.POSIXct to convert in next iteration 
+    df[[varname]] <- NULL
+    df[[varname]] <- as.POSIXct(earlydate)
+  }
+  return(df)
 }
-varnames_mean <- function() {
-  return(c("temp","dew_pt","hum","wind_spd","vis","pressure","wind_chill",
-           "heat_index","precip","precip_rate","wind_dir","gust_ratio"))
-}
-varnames_max <- function() {
-  return(c("wind_gust","precip_total"))
-}
-varnames_indicator <- function() {
-  return(c("fog","rain","snow","hail","thunder","tornado"))
-}
-varnames_first <- function() {
-  return(c("localdate","localdate","localtz","localdecimaltime"))
-}
-varnames_concat <- function() {
-  return(c("cond"))
-}
+
 

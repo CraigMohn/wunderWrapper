@@ -14,8 +14,9 @@
 #'   \link{rebuild_weather}
 #'
 #' @importFrom rwunderground history_range get_api_key
-#' @importFrom lubridate second minute hour tz date with_tz days ymd
-#' @importFrom dplyr bind_rows anti_join arrange group_by distinct first funs lag n do
+#' @importFrom lubridate second minute hour tz date with_tz days ymd is.POSIXct
+#' @importFrom dplyr bind_rows anti_join left_join right_join arrange group_by 
+#' @importFrom dplyr distinct first funs lag n do one_of group_by_ arrange_
 #' @importFrom magrittr %>%
 #' @importFrom pracma Mode
 #' @importFrom stats approx
@@ -27,5 +28,5 @@ tedious <- utils::globalVariables(c(".","weatherstation","weatherupdate","localt
                                     "temp","dew_pt","hum","wind_spd","wind_gust","vis","precip",
                                     "pressure","wind_chill","heat_index","gustratio","snow","hail",
                                     "minutes","cond","fog","rain","thunder","tornado","time","localtz",
-                                    "precip_total","precip_rate","min_temp","max_temp"))
+                                    "precip_total","precip_rate","min_temp","max_temp","rank1","rank2"))
 

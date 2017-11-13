@@ -45,10 +45,10 @@ rebuild_weather <- function(archive.dir,update.dir="",...) {
     if (is.null(weather_hourly)) {
       weather_hourly <- temp
     } else {
-      weather_hourly <- dplyr::bind_rows(dplyr::anti_join(weather_hourly,temp,
-                                               #by=c("weatherstation","localdate","localtime")),
-                                               by=c("weatherstation","date")),
-                                         temp)
+      weather_hourly <- merge_hourly_data(weather_hourly,temp)
+#      weather_hourly <- dplyr::bind_rows(dplyr::anti_join(weather_hourly,temp,
+#                                               by=c("weatherstation","date")),
+#                                         temp)
     }
   }  
   setwd(old_wd)
@@ -62,9 +62,10 @@ rebuild_weather <- function(archive.dir,update.dir="",...) {
       load(x)
       #  grab local time info Before stacking data from diff timezones
       temp <- hourly_localtimes(weatherupdate)
-      weather_hourly <- dplyr::bind_rows(dplyr::anti_join(weather_hourly,temp,
-                                             by=c("weatherstation","date")),
-                                         temp)
+      weather_hourly <- merge_hourly_data(weather_hourly,temp)
+#      weather_hourly <- dplyr::bind_rows(dplyr::anti_join(weather_hourly,temp,
+#                                             by=c("weatherstation","date")),
+#                                         temp)
     }  
     setwd(old_wd)
   }
