@@ -212,9 +212,14 @@ force_POSIX_dfvar <- function(df,varname,earlydate="1960-01-01")  {
   if (lubridate::is.POSIXct(df[[varname]])) {
     df[[varname]][is.na(df[[varname]])] <- as.POSIXct(earlydate)
   } else {
-    #  tryCatch as.POSIXct to convert in next iteration 
+    tt <- try(as.POSIXct(df[[varname]]),silent=TRUE)
     df[[varname]] <- NULL
-    df[[varname]] <- as.POSIXct(earlydate)
+    if (!inherits(tt, "try-error")) {
+      df[[varname]] <- tt
+      df[[varname]][is.na(df[[varname]])] <- as.POSIXct(earlydate)
+    } else {
+      df[[varname]] <- as.POSIXct(earlydate)
+    }
   }
   return(df)
 }
