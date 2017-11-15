@@ -4,26 +4,31 @@
 \alias{rebuild_weather}
 \title{Pull together the weather archive files and stored updates}
 \usage{
-rebuild_weather(archive.dir, update.dir = "", ...)
+rebuild_weather(archiveDir, updateDir = "", ...)
 }
 \arguments{
-\item{archive.dir}{string containing the locally-archived wunderground data directory.
-Data will be loaded from this directory and its subdirectory tree.}
+\item{archiveDir}{string containing the locally-archived wunderground 
+data directory. Data will be loaded from this directory and its 
+subdirectory tree.}
 
-\item{update.dir}{string containing the locally-archived wunderground data updates directory.}
+\item{updateDir}{string containing the locally-archived wunderground 
+data updates directory.}
 
-\item{...}{validity limit variables for data cleaning by \code{\link{clean_hourly_data}}}
+\item{...}{validity limit variables for data cleaning by 
+\code{\link{clean_hourly_data}}}
 }
 \value{
-a list containing two dataframes.  One contains approximately hourly measures
-  of temperature, precipitation, wind, etc, along with time and weatherstation id. 
-  The other contains daily mins, max, means and totals for the things in the hourly 
-  reports.  Mins and maxs are based on all daily observations plus interpolated 
-  values for midnight (local time) at the beginning and end of the day.  Means are
-  based on data plus the midnight interpolations, weighted by the elapsed time between
-  them.  If the data is for a time and place where Daylight Savings Time is in effect, 
-  there will be one 23 hour and one 25 hour day per year.  Precip totals are based on
-  the average hourly rainfall rate and a 24 hour day.
+a list containing two dataframes.  One contains approximately 
+  hourly measures of temperature, precipitation, wind, etc, along with time
+  and weatherstation id. The other contains daily mins, max, means and 
+  totals for the things in the hourly reports.  Mins and maxs are based 
+  on all daily observations plus interpolated values for midnight (local 
+  time) at the beginning and end of the day.  Means are based on data plus 
+  the midnight interpolations, weighted by the elapsed time between
+  them.  If the data is for a time and place where Daylight Savings Time 
+  is in effect, there will be one 23 hour and one 25 hour day per year. 
+  Precip totals are based on the average hourly rainfall rate and a 24 
+  hour day.
 }
 \description{
 \code{rebuild_weather} Read in all of the archived and stored updates for  
@@ -35,10 +40,10 @@ from wunderground.  Timezones are set to local, so when you combine these
 into a single frame, the TZ info will be wiped out, and the date/time
 variables will be affected.
 
-Before combining these dataframes from different stations, we store the Timezone,
-and the local Time and Date as character strings reflecting the time at the site, regardless
-your tz settings.
+Before combining these dataframes from different stations, we store the
+Timezone, and the local Time and Date as character strings reflecting the 
+time at the site, regardless of your tz settings.
 }
 \seealso{
-\code{\link{update_weatherdata}}     \code{\link{clean_hourly_data}}
+\code{\link{update_weather}}     \code{\link{clean_hourly_data}}
 }

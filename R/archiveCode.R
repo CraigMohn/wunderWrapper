@@ -1,8 +1,8 @@
 #' Fetch data for a specific station for a range of dates
 #'
-#' \code{nocap_build_archive} Fetch hourly data for a date range for a specific station.  
+#' \code{store_weather_data} Fetch hourly data for a date range for a specific station.  
 #'   the user is responsible for not exceeding daily quotas, the rate is capped at 10 per 
-#'   minute.  The data will be written to an rda file in the specified archive.dir.
+#'   minute.  The data will be written to an rda file in the specified archiveDir.
 #'   The file will have a name like STATION_YEARXXXX.rda.  There are several minute delays 
 #'   in execution, so that you can't accidentally exceed the rate limit.
 #'
@@ -15,7 +15,7 @@
 #'   created.
 #' @param daystart string containing 4-digit "MMDD" date for first date requested.
 #' @param dayend string containing 4-digit "MMDD" date for last date requested.
-#' @param archive.dir string containing the locally-archived wunderground data directory.
+#' @param archiveDir string containing the locally-archived wunderground data directory.
 #'
 #' @return a list containing two dataframes.  One contains approximately hourly measures
 #'   of temperature, precipitation, wind, etc, along with time and weatherstation id. 
@@ -27,16 +27,16 @@
 #'   which are taken at the most common time after the hour, for many stations that is 53
 #'   minutes after the hour.
 #'   
-#' @seealso \code{\link{update_weatherdata}}    \code{\link{rebuild_weather}}
+#' @seealso \code{\link{update_weather_data}}    \code{\link{merge_location_data}}
 #'
 #' @export
-nocap_build_archive <- function(weatherstation,
+store_weather_data <- function(weatherstation,
                                 year,quarter="",daystart="",dayend="",
-                                archive.dir="") {
+                                archiveDir="") {
   #  no checks on overwriting, or number of calls
   old_wd <- getwd()
   on.exit(setwd(old_wd))
-  if (archive.dir!="") setwd(archive.dir)
+  if (archiveDir!="") setwd(archiveDir)
   
   nameweatherstation <- gsub("pws:","",weatherstation)
   if (!missing(quarter) & is.numeric(quarter)) {
@@ -80,9 +80,9 @@ nocap_build_archive <- function(weatherstation,
   save(list=paste0(nameweatherstation,"_",year,qstr),file=paste0(nameweatherstation,"_",year,qstr,".rda"))                   
   return(wdata)
 }
-#' Update weatherdata pair with new data from wunderground
+#' Update recent weather file for a location with new data
 #'
-#' \code{update_weatherdata} Fetch the necessary data from wunderground,
+#' \code{update_weather_data} Fetch the necessary data from wunderground,
 #'   archive it, process it and update the hourly detail and the daily 
 #'   summary data frames.
 #'
@@ -91,106 +91,81 @@ nocap_build_archive <- function(weatherstation,
 #' you combine these into a single frame, the TZ info will be wiped out, 
 #' and the date/time variables will be affected.
 #' 
-#' Before combining these dataframes from different stations, we store the Timezone,
-#' and the local Time and Date as character strings reflecting the time at the site, 
-#' regardless of your tz settings.  
+#' Before combining these dataframes from different stations, we store
+#' the Timezone, and the local Time and Date as character strings reflecting
+#' the time at the site, regardless of your tz settings.  
 #'
-#' @param weatherpair a 2 item list containing the hourly and daily dataframes
 #' @param weatherstation string containing the station ID (preface zip codes 
 #'   with ZIPxxxxx)
-#' @param begin.date a string "YYYYMMDD" identifying the first date to fetch in
-#'   the interval.  If not specified, it chooses the last date specied for the
-#'   weatherstation in th weatherpair dataframes.  If there is no such date, the
-#'   begin.date is set to the same value as end.date.
-#' @param end.date a string "YYYMMDD" identifying the last date to fetch in the 
+#' @param beginDate a string "YYYYMMDD" identifying the first date to fetch in
+#'   the interval. If not specified, and an update data file is found, the last
+#'   date present is used.  Otherwise, the current date will be used. 
+#' @param endDate a string "YYYMMDD" identifying the last date to fetch in the 
 #'   interval.  If not specified, the current Sys.Date() is used.
-#' @param update.dir string containing the locally-archived wunderground data 
+#' @param updateDir string containing the locally-archived wunderground data 
 #'   updates directory, so that data fetched can be re-used.
-#' @param ... validity limit variables for data cleaning
+#' @param newfileok if no existing update file found, create one
+#' @param nofetchlimit do not retrieve more than 50 unless true
 #'
-#' @return a list containing two dataframes.  One contains approximately hourly measures
-#'   of temperature, precipitation, wind, etc, along with time and weatherstation id. 
-#'   The other contains daily mins, max, means and totals for the things in the hourly 
-#'   reports.  Mins and maxs are based on all daily observations plus interpolated 
-#'   values for midnight (local time) at the beginning and end of the day.  Means are
-#'   based on data plus the midnight interpolations, weighted by the elapsed time between
-#'   them.  If the data is for a time and place where Daylight Savings Time is in effect, 
-#'   there will be one 23 hour and one 25 hour day per year.  Precip totals are based on
-#'   the average hourly rainfall rate and a 24 hour day.
+#' @return a dataframe containing the wunderground data.
 #'
-#' @seealso \code{\link{rebuild_weather}}     \code{\link{clean_hourly_data}}
+#' @seealso \code{\link{store_weather_data}}  \code{\link{merge_location_data}}
 #'
 #' @export
-update_weatherdata <- function(weatherpair,weatherstation,begin.date=NA,end.date=NA,
-                                    update.dir="",...) {
+update_weather_data <- function(weatherstation,
+                                beginDate="",endDate=NA,updateDir="",
+                                newfileok=FALSE,nofetchlimit=FALSE) {
+
   nameweatherstation <- gsub("pws:","",weatherstation)
-  weatherdata <- weatherpair[["hourly"]]
-  weatherdaily <- weatherpair[["daily"]]
-  station_data <- weatherdata[weatherdata$weatherstation==nameweatherstation,]
-  station_daily <- weatherdaily[weatherdaily$weatherstation==nameweatherstation,]
-  other_data <- weatherdata[weatherdata$weatherstation!=nameweatherstation,]
-  other_daily <- weatherdaily[weatherdaily$weatherstation!=nameweatherstation,]
+  if (missing(endDate)|is.na(endDate)) 
+    endDate <- as.character(format(Sys.Date(),"%Y%m%d"))
   
-  if (missing(end.date)|is.na(end.date)) end.date <- as.character(format(Sys.Date(),"%Y%m%d"))
-
-  if (nrow(station_data)==0) {
-    if (missing(begin.date)|is.na(begin.date)) begin.date <- end.date
+  if (updateDir=="") {
+    updfile <- paste0(nameweatherstation,"weatherupdate.rda")
   } else {
-    if (missing(begin.date)|is.na(begin.date)) 
-         begin.date <- max(station_data$localdate)
+    updfile <- paste0(updateDir,"/",nameweatherstation,"weatherupdate.rda")
   }
-  if (nrow(station_daily)>=2) {
-    daybefore <- as.character(as.Date(begin.date,"%Y%m%d")-1,"%Y%m%d")
-    hourlybefore <- station_data[station_data[["localdate"]]==daybefore,]
-  } else {
-    daybefore <- NA
-    hourlybefore <- NULL
-  }
-  
-  if (end.date < begin.date) stop("end.date , begin.date")
-  ndates <- ceiling(as.double(difftime(as.Date(end.date,format="%Y%m%d"),
-                                       as.Date(begin.date,format="%Y%m%d"),
-                                       units="days"))+1)
-  if (ndates > 50) {
-    cat("too many dates requested in one call to update_weatherdata\n")
-    cat(begin.date,"    ",end.date,"\n")
-  }  else {
-  cat(ndates," call(s) to wunderground. 60 second sleep to avoid rate limit.\n")
-  Sys.sleep(60)
-  new_data <- zip_history_range(location=weatherstation,date_start=begin.date,
-                              date_end=end.date,key=rwunderground::get_api_key())
-  new_data$weatherstation <- nameweatherstation
-  new_data_local <- hourly_localtimes(new_data)
-  new_data_local <- clean_hourly_data(new_data_local,...)
-  new_daily <- dailysummary(bind_rows(hourlybefore,new_data_local))
-  if (!is.na(daybefore)) new_daily <- new_daily[new_daily$localdate != daybefore,]
-    
-  if (update.dir!="") {
-    updfile <- paste0(update.dir,"/",nameweatherstation,"weatherupdate.rda")
-    if (file.exists(updfile)) {
-      load(updfile)
-      file.rename(updfile,paste0(updfile,"old"))
-      weatherupdate <- dplyr::bind_rows(dplyr::anti_join(weatherupdate,new_data,
-                                           by=c("weatherstation","date")),new_data) %>%
-              dplyr::arrange(weatherstation,date)
-    } else {
-      weatherupdate <- new_data
+  if (file.exists(updfile)) {
+    load(updfile)
+    file.rename(updfile,paste0(updfile,"old"))
+    if (beginDate=="") {
+      temp <- hourly_localtimes(weatherupdate)$localdate
+      beginDate <- temp[nrow(temp)]
     }
-    save(weatherupdate,file=updfile)
+    temp <- hourly_localtimes(weatherupdate)
+  } else if (!newfileok) {
+    stop(paste0(updfile," not found and newfileok=FALSE"))
+  } else {
+    weatherupdate <- NULL
+    if (beginDate=="") {
+      beginDate <- as.character(format(Sys.Date(),"%Y%m%d"))  
+    }
   }
-  weatherdata <- dplyr::bind_rows(dplyr::anti_join(station_data,new_data_local,
-                                          by=c("weatherstation","date")),
-                                  new_data_local,other_data)     %>%
-                 dplyr::arrange(weatherstation,date)
-  weatherdaily <- dplyr::bind_rows(dplyr::anti_join(station_daily,new_daily,
-                                           by=c("weatherstation","localdate")),
-                                   new_daily,other_daily)        %>%
-                  dplyr::arrange(weatherstation,localdate)
+  if (endDate < beginDate) 
+    stop(paste0("endDate ",endDate," before beginDate ",beginDate))
+  ndates <- ceiling(as.double(difftime(as.Date(endDate,format="%Y%m%d"),
+                                       as.Date(beginDate,format="%Y%m%d"),
+                                       units="days"))+1)
+  if (ndates > 50 & !nofetchlimit) {
+    stop(paste0("too many dates (",ndates,
+                "). set nofetchlimit=TRUE if you intend this"))
   }
-  cat(nrow(new_data_local)," new observations on  ",nrow(new_daily)," days\n")
-  return(list(daily=weatherdaily,hourly=weatherdata))
-}
-
+  cat(ndates," call(s) to wunderground. 60 sec sleep to avoid rate limit.\n")
+  Sys.sleep(60)
+  new_data <- zip_history_range(location=weatherstation,
+                                date_start=beginDate,
+                                date_end=endDate,
+                                key=rwunderground::get_api_key())
+  new_data$weatherstation <- nameweatherstation
+  if (is.null(weatherupdate)) {
+    weatherupdate <- dplyr::arrange(new_data,date)
+  } else {
+    weatherupdate <- merge_location_data(new_data,weatherupdate,byvar="date",
+                                  rankvar="fetchtime",sortvar="date")
+  }  
+  save(weatherupdate,file=updfile)
+  return(new_data)
+} 
 #' Merge two dataframes of location data, keeping most recently scraped data
 #'
 #' \code{merge_location_data} Given two data frames, group observations, then 
@@ -207,13 +182,16 @@ update_weatherdata <- function(weatherpair,weatherstation,begin.date=NA,end.date
 #'   same byvar group is present in both data frames, or if it is only in 
 #'   one of df1 or df2.
 #'   
-#' @seealso \code{\link{update_weatherdata}}    \code{\link{nocap_build_archive}}
+#' @seealso \code{\link{update_weather_data}}    \code{\link{store_weather_data}}
 #'
 #' @export
 merge_location_data <- function(df1,df2,byvar="localdate",
                               rankvar="fetchtime",sortvar="date") {
   if (df1$weatherstation[1] != df2$weatherstation[1]) 
     stop("cannot merge different locations")
+  if (is.null(df1)) return(df2)
+  if (is.null(df2)) return(df1)
+  
   addld1 <- addld2 <- FALSE
   if (!(rankvar %in% names(df1)))  df1[[rankvar]] <- NA
   if (!(rankvar %in% names(df2)))  df2[[rankvar]] <- NA

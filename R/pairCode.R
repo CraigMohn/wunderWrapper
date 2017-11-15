@@ -3,38 +3,46 @@
 #' \code{rebuild_weather} Read in all of the archived and stored updates for  
 #'  weather data.  It returns a list of 2 dataframes (hourly and daily).
 #'
-#' The data archive and update files are stored in a dataframe as returned
-#' from wunderground.  Timezones are set to local, so when you combine these
-#' into a single frame, the TZ info will be wiped out, and the date/time
-#' variables will be affected.
+#' Previously fetched data files are assembled and stored in a list of two
+#' tibbles, one containing the data from all files, and one conatining daily
+#' summary variables.
 #' 
-#' Before combining these dataframes from different stations, we store the Timezone,
-#' and the local Time and Date as character strings reflecting the time at the site, regardless
-#' your tz settings.  
-#'
-#' @param archive.dir string containing the locally-archived wunderground data directory.
-#'   Data will be loaded from this directory and its subdirectory tree.
-#' @param update.dir string containing the locally-archived wunderground data updates directory.
-#' @param ... validity limit variables for data cleaning by \code{\link{clean_hourly_data}}
-#'
-#' @return a list containing two dataframes.  One contains approximately hourly measures
-#'   of temperature, precipitation, wind, etc, along with time and weatherstation id. 
-#'   The other contains daily mins, max, means and totals for the things in the hourly 
-#'   reports.  Mins and maxs are based on all daily observations plus interpolated 
-#'   values for midnight (local time) at the beginning and end of the day.  Means are
-#'   based on data plus the midnight interpolations, weighted by the elapsed time between
-#'   them.  If the data is for a time and place where Daylight Savings Time is in effect, 
-#'   there will be one 23 hour and one 25 hour day per year.  Precip totals are based on
-#'   the average hourly rainfall rate and a 24 hour day.
+#' The daily summaries are slightly dependent on the last observation from
+#' the preceding day and the first observation from the following day, as 
+#' midnight values are interpolated and included in the daily measures. 
 #' 
-#' @seealso \code{\link{update_weatherdata}}     \code{\link{clean_hourly_data}}
+#' Before combining these dataframes from different stations, we store the
+#' Timezone, and the local Time and Date as character strings reflecting the 
+#' time at the site, regardless of your tz settings.  
+#'
+#' @param archiveDir string containing the locally-archived wunderground 
+#'   data directory. Data will be loaded from this directory and its 
+#'   subdirectory tree.
+#' @param updateDir string containing the locally-archived wunderground 
+#'   data updates directory.
+#' @param ... validity limit variables for data cleaning by 
+#'   \code{\link{clean_hourly_data}}
+#'
+#' @return a list containing two dataframes.  One contains approximately 
+#'   hourly measures of temperature, precipitation, wind, etc, along with time
+#'   and weatherstation id. The other contains daily mins, max, means and 
+#'   totals for the things in the hourly reports.  Mins and maxs are based 
+#'   on all daily observations plus interpolated values for midnight (local 
+#'   time) at the beginning and end of the day.  Means are based on data plus 
+#'   the midnight interpolations, weighted by the elapsed time between
+#'   them.  If the data is for a time and place where Daylight Savings Time 
+#'   is in effect, there will be one 23 hour and one 25 hour day per year. 
+#'   Precip totals are based on the average hourly rainfall rate and a 24 
+#'   hour day.
+#' 
+#' @seealso \code{\link{update_weather}}     \code{\link{clean_hourly_data}}
 #'
 #' @export
-rebuild_weather <- function(archive.dir,update.dir="",...) {
+rebuild_weather <- function(archiveDir,updateDir="",...) {
   
   old_wd <- getwd()
   on.exit(setwd(old_wd))
-  setwd(archive.dir)
+  setwd(archiveDir)
   fl <- list.files(pattern=".rda",recursive=TRUE)
   weather_hourly <- NULL
   for (x in fl) {
@@ -52,8 +60,8 @@ rebuild_weather <- function(archive.dir,update.dir="",...) {
     }
   }  
   setwd(old_wd)
-  if (update.dir!="") {
-    setwd(update.dir)
+  if (updateDir!="") {
+    setwd(updateDir)
     fl <- list.files(pattern=".rda")
     flold <- list.files(pattern=".rdaold")
     fl <- setdiff(fl,flold)
@@ -74,9 +82,100 @@ rebuild_weather <- function(archive.dir,update.dir="",...) {
   weather_daily <-  dailysummary(weather_hourly) %>%
                     dplyr::arrange(weatherstation,localdate) 
   cat(nrow(weather_hourly),"\n obs on ",nrow(weather_daily)," station-days\n")
-  weather_report(list(daily=weather_daily,hourly=weather_hourly))
+  report_weather(list(daily=weather_daily,hourly=weather_hourly))
   return(list(daily=weather_daily,hourly=weather_hourly))
 }
+#' Update weather data with new data from wunderground
+#'
+#' \code{update_weatherdata} Fetch the necessary data from wunderground,
+#'   archive it, process it and update the hourly detail and the daily 
+#'   summary data frames.
+#'
+#' The daily summaries are slightly dependent on the last observation from
+#' the preceding day and the first observation from the following day, as 
+#' midnight values are interpolated and included in the daily measures. The
+#' daily measures for the last day observed are cumulative, and change as more
+#' observations are included.
+#'
+#' @param weatherpair a 2 item list containing the hourly and daily dataframes
+#' @param weatherstation string containing the station ID (preface zip codes 
+#'   with ZIPxxxxx)
+#' @param beginDate a string "YYYYMMDD" identifying the first date to fetch in
+#'   the interval.  If not specified, it chooses the last date specied for the
+#'   weatherstation in th weatherpair dataframes.  If there is no such date,
+#'   the beginDate is set to the same value as endDate.
+#' @param endDate a string "YYYMMDD" identifying the last date to fetch in the 
+#'   interval.  If not specified, the current Sys.Date() is used.
+#' @param updateDir string containing the locally-archived wunderground data 
+#'   updates directory, so that data fetched can be re-used.
+#' @param newfileok if no existing update file found, create one
+#' @param nofetchlimit do not retrieve more than 50 unless true
+#' @param ... validity limit variables for data cleaning
+#'
+#' @return a list containing two dataframes.  One contains approximately hourly
+#'   measures of temperature, precipitation, wind, etc, along with time and 
+#'   weatherstation id. The other contains daily mins, max, means and totals 
+#'   for the things in the hourly reports.  Mins and maxs are based on all 
+#'   daily observations plus interpolated values for midnight (local time) at 
+#'   the beginning and end of the day.  Means are based on data plus the 
+#'   midnight interpolations, weighted by the elapsed time between them.  If 
+#'   the data is for a time and place where Daylight Savings Time is in effect, 
+#'   there will be one 23 hour and one 25 hour day per year.  Precip totals are
+#'    based on the average hourly rainfall rate and a 24 hour day.
+#'
+#' @seealso \code{\link{rebuild_weather}} \code{\link{clean_hourly_data}}
+#'
+#' @export
+update_weather <- function(weatherpair,weatherstation,beginDate=NA,endDate=NA,
+                           updateDir="",newfileok=FALSE,nofetchlimit=FALSE,...) {
+  nameweatherstation <- gsub("pws:","",weatherstation)
+  wdata <- weatherpair[["hourly"]]
+  wdaily <- weatherpair[["daily"]]
+  station_data <- wdata[wdata$weatherstation==nameweatherstation,]
+  station_daily <- wdaily[wdaily$weatherstation==nameweatherstation,]
+  other_data <- wdata[wdata$weatherstation!=nameweatherstation,]
+  other_daily <- wdaily[wdaily$weatherstation!=nameweatherstation,]
+  
+  if (missing(endDate)|is.na(endDate)) 
+    endDate <- as.character(format(Sys.Date(),"%Y%m%d"))
+  
+  if (nrow(station_data)==0) {
+    if (missing(beginDate)|is.na(beginDate)) beginDate <- endDate
+  } else {
+    if (missing(beginDate)|is.na(beginDate)) 
+      beginDate <- max(station_data$localdate)
+  }
+  if (endDate < beginDate) 
+    stop(paste0("endDate ",endDate," before beginDate ",beginDate))
+
+  if (nrow(station_daily)>=2) {
+    daybefore <- as.character(as.Date(beginDate,"%Y%m%d")-1,"%Y%m%d")
+    hourlybefore <- station_data[station_data[["localdate"]]==daybefore,]
+  } else {
+    daybefore <- NA
+    hourlybefore <- NULL
+  }
+  new_data <- update_weather_data(weatherstation,
+                                  beginDate=beginDate,endDate=endDate,
+                                  updateDir=updateDir,
+                                  newfileok=newfileok,
+                                  nofetchlimit=nofetchlimit)
+  new_data_local <- hourly_localtimes(new_data)
+  new_data_local <- clean_hourly_data(new_data_local,...)
+  new_daily <- dailysummary(dplyr::bind_rows(hourlybefore,new_data_local))
+  if (!is.na(daybefore)) 
+    new_daily <- new_daily[new_daily$localdate != daybefore,]
+  
+  weatherdata <- merge_hourly_data(dfbig=wdata,dfoneloc=new_data_local)   
+  weatherdaily <- dplyr::bind_rows(
+                      dplyr::anti_join(station_daily,new_daily,
+                                       by=c("weatherstation","localdate")),
+                      new_daily,other_daily)   %>%
+      dplyr::arrange(weatherstation,localdate)
+  cat(nrow(new_data_local)," new observations on  ",nrow(new_daily)," days\n")
+  return(list(daily=weatherdaily,hourly=weatherdata))
+}
+
 
 #' Remove data measurements that are outside of credible ranges
 #'
@@ -101,7 +200,7 @@ rebuild_weather <- function(archive.dir,update.dir="",...) {
 #'
 #' @return dataframe with extreme values set to NA
 #'   
-#' @seealso \code{\link{update_weatherdata}} \code{\link{rebuild_weather}}
+#' @seealso \code{\link{update_weather}} \code{\link{rebuild_weather}}
 #'
 #' @export
 clean_hourly_data <- function(df,fast=FALSE,temp.min=-50,temp.max=130,
@@ -151,27 +250,6 @@ clean_hourly_data <- function(df,fast=FALSE,temp.min=-50,temp.max=130,
     return(temp %>% 
              dplyr::group_by(weatherstation,date) %>% 
              dplyr::filter(n()>1) %>%
-#             dplyr::summarize(temp=mean(temp,na.rm=TRUE),
-#                              dew_pt=mean(dew_pt,na.rm=TRUE),
-#                              hum=mean(hum,na.rm=TRUE),
-#                              wind_spd=mean(wind_spd,na.rm=TRUE),
-#                              wind_gust=max(max(wind_gust,na.rm=TRUE),0),
-#                              vis=mean(vis,na.rm=TRUE),
-#                              pressure=mean(pressure,na.rm=TRUE),
-#                              wind_chill=mean(wind_chill,na.rm=TRUE),
-#                              heat_index=mean(heat_index,na.rm=TRUE),
-#                              precip=mean(precip,na.rm=TRUE),
-#                              fog=max(max(fog,na.rm=TRUE),0),
-#                              rain=max(max(rain,na.rm=TRUE),0),
-#                              snow=max(max(snow,na.rm=TRUE),0),
-#                              hail=max(max(hail,na.rm=TRUE),0),
-#                              thunder=max(max(thunder,na.rm=TRUE),0),
-#                              tornado=max(max(tornado,na.rm=TRUE),0),
-#                              localdecimaltime <- first(localdecimaltime),
-#                              localtime=dplyr::first(localtime),
-#                              localdate=dplyr::first(localdate),
-#                              localtz=dplyr::first(localtz)
-#             ) %>%
              dplyr::do(collapse_dups(.)) %>%
              dplyr::ungroup() %>%
              dplyr::mutate(temp=replace(temp, is.nan(temp), NA),
@@ -194,7 +272,7 @@ clean_hourly_data <- function(df,fast=FALSE,temp.min=-50,temp.max=130,
 
 #' Summarize a weatherdata pair
 #'
-#' \code{weather_report} Summarize the number of dates in the weather data archive, 
+#' \code{report_weather} Summarize the number of dates in the weather data archive, 
 #'      and share of dates covered for each station.
 #'
 #' @param weatherpair list of periodic and daily weather data, as produced by 
@@ -202,11 +280,11 @@ clean_hourly_data <- function(df,fast=FALSE,temp.min=-50,temp.max=130,
 #'
 #' @return NULL
 #'   
-#' @seealso \code{\link{update_weatherdata}} \code{\link{rebuild_weather}}
+#' @seealso \code{\link{update_weather}} \code{\link{rebuild_weather}}
 #'   
 #'
 #' @export
-weather_report <- function(weatherpair) {
+report_weather <- function(weatherpair) {
   stationset <- unique(weatherpair[["hourly"]][["weatherstation"]])
   dateset <- unique(weatherpair[["hourly"]][["localdate"]])
   cat("Periodic Data for ",length(dateset)," dates \n")

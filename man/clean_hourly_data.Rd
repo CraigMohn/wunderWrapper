@@ -46,5 +46,5 @@ dataframe with extreme values set to NA
   between 0 and 100.
 }
 \seealso{
-\code{\link{update_weatherdata}} \code{\link{rebuild_weather}}
+\code{\link{update_weather}} \code{\link{rebuild_weather}}
 }

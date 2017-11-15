@@ -7,11 +7,11 @@
 #'   if you want to do more.
 #'
 #'
-#' @section fetch data from wunderground.com:
-#'   \link{update_weatherdata}, \link{nocap_build_archive}
+#' @section fetch, store and combine data from wunderground.com:
+#'   \link{store_weather_data}, \link{update_weather_data}, \link{merge_location_data}
 #'
 #' @section rebuild hourly/daily dataframe pair from archive data:
-#'   \link{rebuild_weather}
+#'   \link{rebuild_weather}, \link{update_weather} ,\link{report_weather}
 #'
 #' @importFrom rwunderground history_range get_api_key
 #' @importFrom lubridate second minute hour tz date with_tz days ymd is.POSIXct

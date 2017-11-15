@@ -18,13 +18,13 @@ wunderWrapper offers a few functions to retrieve, save and format historical wea
   has limits on request volume and rate.  See rwunderground package documentation 
   if you want to do more.
 }
-\section{fetch data from wunderground.com}{
+\section{fetch, store and combine data from wunderground.com}{
 
-  \link{update_weatherdata}, \link{nocap_build_archive}
+  \link{store_weather_data}, \link{update_weather_data}, \link{merge_location_data}
 }
 
 \section{rebuild hourly/daily dataframe pair from archive data}{
 
-  \link{rebuild_weather}
+  \link{rebuild_weather}, \link{update_weather} ,\link{report_weather}
 }
 

@@ -29,5 +29,5 @@ a dataframe containing data from df1 and df2, where data is
   select which dataset to use based on rank.
 }
 \seealso{
-\code{\link{update_weatherdata}}    \code{\link{nocap_build_archive}}
+\code{\link{update_weather_data}}    \code{\link{store_weather_data}}
 }
