@@ -35,10 +35,13 @@ a list containing two dataframes.  One contains approximately
  weather data.  It returns a list of 2 dataframes (hourly and daily).
 }
 \details{
-The data archive and update files are stored in a dataframe as returned
-from wunderground.  Timezones are set to local, so when you combine these
-into a single frame, the TZ info will be wiped out, and the date/time
-variables will be affected.
+Previously fetched data files are assembled and stored in a list of two
+tibbles, one containing the data from all files, and one conatining daily
+summary variables.
+
+The daily summaries are slightly dependent on the last observation from
+the preceding day and the first observation from the following day, as 
+midnight values are interpolated and included in the daily measures.
 
 Before combining these dataframes from different stations, we store the
 Timezone, and the local Time and Date as character strings reflecting the 

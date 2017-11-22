@@ -3,9 +3,6 @@ hourly_localtimes <- function(hourlydata) {
     hourlydata$localtz <- lubridate::tz(hourlydata$date)
     hourlydata$localdate <- as.character(lubridate::date(hourlydata$date),"%Y%m%d")
     hourlydata$localtime <- as.character(hourlydata$date,"%H%M%S")
-    hourlydata$localdecimaltime <- lubridate::hour(hourlydata$date) + 
-                                   lubridate::minute(hourlydata$date)/60 +
-                                   lubridate::second(hourlydata$date)/3600
     hourlydata$gustratio <- hourlydata$wind_gust/hourlydata$wind_spd
     hourlydata$gustratio[is.na(hourlydata$gustratio)] <- 1
     hourlydata$wind_dir <- dir_numeric(hourlydata$dir)

@@ -1,3 +1,92 @@
+#' Return a dataframe of weather variables characterizing an interval
+#'
+#' \code{weather_interval} Return a dataframe of weather variables 
+#'   characterizing an interval.  
+#'
+#' If the interval begins or end in the hour where daylight saving
+#' causes the hour to repeat (fall back), it will be assumed that it 
+#' begins or ends on the first pass.
+#'
+#' @param weatherdata data frame containing weather data
+#' @param weatherlocation char vector containing the station IDs (preface
+#'   zip codes with ZIPxxxxx)
+#' @param localdateBegin char vector containing the local date of the beginning
+#'   of the interval "YYYYMMDD"
+#' @param localtimeBegin char vector containing the local time of the beginning
+#'   of the interval "HHMMSS"
+#' @param durationHours numeric length of the interval in hours
+#'
+#' @return a dataframe containg the following variables:
+#' 
+#' @seealso \code{\link{update_weather}}     \code{\link{clean_hourly_data}}
+#'
+#' @export
+weather_interval <- function(weatherdata,weatherlocation,
+                             localdateBegin,localtimeBegin,
+                             durationHours) {
+  nr <- nrow(localdateBegin)
+  weatherdf <- data.frame(localdate=localdateBegin,
+                          localtime=localtimeBegin,
+                          tempMin=NA,tempMean=NA,tempMax=NA,
+                          precipMin=NA,precipMean=NA,precipMax=NA,
+                          windMean=NA,gusty=NA,stringsAsFactors=FALSE)
+  for (wloc in unique(weatherlocation)) {
+    wlocobs <- weatherlocation == wloc  
+    wlocdata <- weatherdata$weatherstation == wloc
+    wloctz <- weatherdata$localtz[wlocdata][1]
+    timebeg <- as.POSIXct(paste0(localdateBegin[wlocobs]," ",localtimeBegin[wlocobs]),
+                          format("%Y%m%d %H%M%S"),tz=wloctz)
+    timeend <- timebeg + 3600*durationHours[wlocobs]
+    temps <- as.data.frame(t(
+                     mapply(
+                      mmfuns,timebeg,timeend,
+                      MoreArgs=list(datatime=weatherdata$date[wlocdata],
+                                    datameasure=weatherdata$temp[wlocdata]))))
+    winds <- as.data.frame(t(
+      mapply(
+        mmfuns,timebeg,timeend,
+        MoreArgs=list(datatime=weatherdata$date[wlocdata],
+                      datameasure=weatherdata$wind_spd[wlocdata]))))
+    precips <- as.data.frame(t(
+      mapply(
+        mmfuns,timebeg,timeend,
+        MoreArgs=list(datatime=weatherdata$date[wlocdata],
+                      datameasure=weatherdata$precip[wlocdata]))))
+    gustratios <- as.data.frame(t(
+      mapply(
+        mmfuns,timebeg,timeend,
+        MoreArgs=list(datatime=weatherdata$date[wlocdata],
+                      datameasure=weatherdata$gustratio[wlocdata]))))
+    weatherdf[wlocobs,"tempMin"] <- temps[,"min"]
+    weatherdf[wlocobs,"tempMean"] <- temps[,"mean"]
+    weatherdf[wlocobs,"tempMAX"] <- temps[,"max"]
+    weatherdf[wlocobs,"precipMin"] <- precips[,"min"]
+    weatherdf[wlocobs,"precipMean"] <- precips[,"mean"]
+    weatherdf[wlocobs,"precipMAX"] <- precips[,"max"]
+    weatherdf[wlocobs,"windMean"] <- winds[,"mean"]
+    weatherdf[wlocobs,"gusty"] <- gustratios[,"max"] > 1.6 & 
+                                      winds[,"mean"] > 5
+  }
+  return(weatherdf)
+}
+mmfuns <- function(timebeg,timeend,datatime,datameasure,
+                    toofar=60,grid=10) {
+  usedata <- datatime < timeend+lubridate::minutes(toofar) & 
+             datatime > timebeg-lubridate::minutes(toofar)
+  if (sum(!is.na(datameasure[usedata])) > 2) {
+    valseq <- approx(datatime[usedata],datameasure[usedata],
+                     seq(timebeg,timeend,by=paste0(grid," min")),
+                     rule=2)[[2]]
+    return(c("mean"=mean(valseq,na.rm=TRUE),
+              "min"=min(valseq,na.rm=TRUE),
+              "max"=max(valseq,na.rm=TRUE)))
+  } else {
+    return(c("mean"=mean(datameasure[usedata],na.rm=TRUE),
+             "min"=mean(datameasure[usedata],na.rm=TRUE),
+             "max"=mean(datameasure[usedata],na.rm=TRUE)))
+  }
+}
+
 #' Pull together the weather archive files and stored updates
 #'
 #' \code{rebuild_weather} Read in all of the archived and stored updates for  
@@ -303,3 +392,4 @@ report_weather <- function(weatherpair) {
   print(data.frame(station_name,distinct_dates,total_obs,obs_per_day=total_obs/distinct_dates),right=FALSE,row.names=FALSE)
   return(NULL)
 }
+

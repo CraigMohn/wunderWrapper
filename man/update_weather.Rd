@@ -48,10 +48,11 @@ a list containing two dataframes.  One contains approximately hourly
   summary data frames.
 }
 \details{
-The data archive and update files are stored in a dataframe as returned
-from rwunderground, with POSIXct time/date.  Timezones are set to local
-for the station, so when you combine these into a single frame, the TZ 
-info may be wiped out, and the date/time variables will be affected.
+The daily summaries are slightly dependent on the last observation from
+the preceding day and the first observation from the following day, as 
+midnight values are interpolated and included in the daily measures. The
+daily measures for the last day observed are cumulative, and change as more
+observations are included.
 }
 \seealso{
 \code{\link{rebuild_weather}} \code{\link{clean_hourly_data}}

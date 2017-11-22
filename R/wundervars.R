@@ -15,7 +15,7 @@ varnames_indicator <- function() {
   return(c("fog","rain","snow","hail","thunder","tornado"))
 }
 varnames_first <- function() {
-  return(c("localdate","localtime","localtz","localdecimaltime"))
+  return(c("localdate","localtime","localtz"))
 }
 varnames_concat <- function() {
   return(c("cond"))
