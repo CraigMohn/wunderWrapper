@@ -181,7 +181,7 @@ collapse_dups <- function(df) {
   return(outdf)
 }
 
-merge_hourly_data <- function(dfbig,dfoneloc) {
+merge_hourly_data <- function(dfbig,dfoneloc,loud=FALSE) {
 
    loc <- unique(dfoneloc$weatherstation)
    if (length(loc) > 1) {
@@ -193,8 +193,9 @@ merge_hourly_data <- function(dfbig,dfoneloc) {
    if (nrow(sameloc) == 0) {
      allsameloc <- dfoneloc
    } else {
-     allsameloc <- merge_location_data(sameloc,dfoneloc,byvar="localdate",
-                                       rankvar="fetchtime",sortvar="date") 
+     allsameloc <- merge_location_data(sameloc,dfoneloc,byvar="date",
+                                       rankvar="fetchtime",sortvar="date",
+                                       loud=loud) 
    } 
    allsameloc <- force_POSIX_dfvar(allsameloc,"fetchtime")
    if (nrow(otherloc)>0) otherloc <- force_POSIX_dfvar(otherloc,"fetchtime")

@@ -4,8 +4,8 @@
 \alias{merge_location_data}
 \title{Merge two dataframes of location data, keeping most recently scraped data}
 \usage{
-merge_location_data(df1, df2, byvar = "localdate", rankvar = "fetchtime",
-  sortvar = "date")
+merge_location_data(df1, df2, byvar = "date", rankvar = "fetchtime",
+  sortvar = "date", loud = FALSE)
 }
 \arguments{
 \item{df1}{data frame of archived wunderground data.}
@@ -17,6 +17,8 @@ merge_location_data(df1, df2, byvar = "localdate", rankvar = "fetchtime",
 \item{rankvar}{variable to use in choosing data from df1 and df2.}
 
 \item{sortvar}{variable to sort results by.}
+
+\item{loud}{more output}
 }
 \value{
 a dataframe containing data from df1 and df2, where data is 

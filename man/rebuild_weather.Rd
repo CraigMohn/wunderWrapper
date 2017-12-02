@@ -4,7 +4,8 @@
 \alias{rebuild_weather}
 \title{Pull together the weather archive files and stored updates}
 \usage{
-rebuild_weather(archiveDir, updateDir = "", ...)
+rebuild_weather(archiveDir, updateDir = "", oldDir = "", loud = FALSE,
+  ...)
 }
 \arguments{
 \item{archiveDir}{string containing the locally-archived wunderground 
@@ -13,6 +14,12 @@ subdirectory tree.}
 
 \item{updateDir}{string containing the locally-archived wunderground 
 data updates directory.}
+
+\item{oldDir}{string containing old locally-archived wunderground 
+data updates directory whose files are checked against current version.
+Old data is not merged in, this is for diagnostic purposes.}
+
+\item{loud}{produce more output}
 
 \item{...}{validity limit variables for data cleaning by 
 \code{\link{clean_hourly_data}}}

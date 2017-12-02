@@ -109,8 +109,12 @@ mmfuns <- function(timebeg,timeend,datatime,datameasure,
 #'   subdirectory tree.
 #' @param updateDir string containing the locally-archived wunderground 
 #'   data updates directory.
+#' @param oldDir string containing old locally-archived wunderground 
+#'   data updates directory whose files are checked against current version.
+#'   Old data is not merged in, this is for diagnostic purposes.  
 #' @param ... validity limit variables for data cleaning by 
 #'   \code{\link{clean_hourly_data}}
+#' @param loud produce more output
 #'
 #' @return a list containing two dataframes.  One contains approximately 
 #'   hourly measures of temperature, precipitation, wind, etc, along with time
@@ -127,7 +131,7 @@ mmfuns <- function(timebeg,timeend,datatime,datameasure,
 #' @seealso \code{\link{update_weather}}     \code{\link{clean_hourly_data}}
 #'
 #' @export
-rebuild_weather <- function(archiveDir,updateDir="",...) {
+rebuild_weather <- function(archiveDir,updateDir="",oldDir="",loud=FALSE,...) {
   
   old_wd <- getwd()
   on.exit(setwd(old_wd))
@@ -139,13 +143,16 @@ rebuild_weather <- function(archiveDir,updateDir="",...) {
     load(x)
     assign("temp",eval(parse(text=gsub(".rda","",basename(x)))))
     temp <- hourly_localtimes(temp)
+    if (loud) {
+      if (length(unique(substr(temp$localdate,1,4)))>1) {
+        cat("multiple years in file ",x,". \n",
+            unique(substr(temp$localdate,1,4)),"\n")
+      }
+    }
     if (is.null(weather_hourly)) {
       weather_hourly <- temp
     } else {
-      weather_hourly <- merge_hourly_data(weather_hourly,temp)
-#      weather_hourly <- dplyr::bind_rows(dplyr::anti_join(weather_hourly,temp,
-#                                               by=c("weatherstation","date")),
-#                                         temp)
+      weather_hourly <- merge_hourly_data(weather_hourly,temp,loud)
     }
   }  
   setwd(old_wd)
@@ -159,12 +166,40 @@ rebuild_weather <- function(archiveDir,updateDir="",...) {
       load(x)
       #  grab local time info Before stacking data from diff timezones
       temp <- hourly_localtimes(weatherupdate)
-      weather_hourly <- merge_hourly_data(weather_hourly,temp)
-#      weather_hourly <- dplyr::bind_rows(dplyr::anti_join(weather_hourly,temp,
-#                                             by=c("weatherstation","date")),
-#                                         temp)
+      if (loud) {
+        if (length(unique(substr(temp$localdate,1,4)))>1) {
+          cat("multiple years in file ",x,". \n",
+              unique(substr(temp$localdate,1,4)),"\n")
+        }
+      }
+      weather_hourly <- merge_hourly_data(weather_hourly,temp,loud)
     }  
     setwd(old_wd)
+  }
+  if (oldDir!="") {
+    cat("*******CHECKING OLD DATA FILES AGAINST CURRENT************\n")
+    setwd(oldDir)
+    fl <- list.files(pattern=".rda",recursive=TRUE)
+    flold <- list.files(pattern=".rdaold",recursive=TRUE)
+    fl <- setdiff(fl,flold)
+    for (x in fl) {
+      cat("loading data file ",x,"\n")
+      load(x)
+      #  grab local time info Before stacking data from diff timezones
+      if (grepl("update",x)) {
+        temp <- hourly_localtimes(weatherupdate)
+      } else {
+        assign("temp",eval(parse(text=gsub(".rda","",basename(x)))))
+        temp <- hourly_localtimes(temp)
+      }
+      if (length(unique(substr(temp$localdate,1,4)))>1) {
+          cat("multiple years in file ",x,". \n",
+              unique(substr(temp$localdate,1,4)),"\n")
+      }
+      junk <- merge_hourly_data(weather_hourly,temp,loud=TRUE)
+    }  
+    setwd(old_wd)
+    
   }
   weather_hourly <- clean_hourly_data(weather_hourly,...) %>%  
                     dplyr::arrange(weatherstation,date)  

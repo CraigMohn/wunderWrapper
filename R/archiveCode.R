@@ -176,6 +176,7 @@ update_weather_data <- function(weatherstation,
 #' @param byvar variable to group by in choosing data from df1 and df2.
 #' @param rankvar variable to use in choosing data from df1 and df2.
 #' @param sortvar variable to sort results by.
+#' @param loud more output
 #'
 #' @return a dataframe containing data from df1 and df2, where data is 
 #'   included rom the dataframe which has the largest rankvar if the 
@@ -185,13 +186,24 @@ update_weather_data <- function(weatherstation,
 #' @seealso \code{\link{update_weather_data}}    \code{\link{store_weather_data}}
 #'
 #' @export
-merge_location_data <- function(df1,df2,byvar="localdate",
-                              rankvar="fetchtime",sortvar="date") {
+merge_location_data <- function(df1,df2,byvar="date",
+                              rankvar="fetchtime",sortvar="date",
+                              loud=FALSE) {
   if (df1$weatherstation[1] != df2$weatherstation[1]) 
     stop("cannot merge different locations")
-  if (is.null(df1)) return(df2)
-  if (is.null(df2)) return(df1)
-  
+  if (length(unique(df1$weatherstation)) > 1)
+  if (is.null(df1)) {
+    return(df2) 
+  } else {
+    if (length(unique(df1$weatherstation)) != 1) stop("multiple locations in df1")
+  }
+  if (is.null(df2)) {
+    return(df1)
+  } else {
+    if (length(unique(df2$weatherstation)) != 1) stop("multiple locations in df2")
+  }
+  nobs1 <- nrow(df1)
+  nobs2 <- nrow(df2)
   addld1 <- addld2 <- FALSE
   if (!(rankvar %in% names(df1)))  df1[[rankvar]] <- NA
   if (!(rankvar %in% names(df2)))  df2[[rankvar]] <- NA
@@ -237,6 +249,12 @@ merge_location_data <- function(df1,df2,byvar="localdate",
   df2$from2 <- NULL
   if (addld1) df1 <- dplyr::select(df1,-dplyr::one_of(byvar))
   if (addld2) df2 <- dplyr::select(df2,-dplyr::one_of(byvar))
+  if (loud) {
+    if (nrow(df1) != nobs1)
+      cat("obs from dataframe1 ",nrow(df1)," used out of ",nobs1,"\n")
+    if (nrow(df2) != nobs2)
+      cat("obs from dataframe2 ",nrow(df2)," used out of ",nobs2,"\n")
+  }
   return(dplyr::bind_rows(df1,df2) %>%
            dplyr::arrange_(sortvar)  )
 }
