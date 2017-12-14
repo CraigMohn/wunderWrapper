@@ -191,7 +191,6 @@ merge_location_data <- function(df1,df2,byvar="date",
                               loud=FALSE) {
   if (df1$weatherstation[1] != df2$weatherstation[1]) 
     stop("cannot merge different locations")
-  if (length(unique(df1$weatherstation)) > 1)
   if (is.null(df1)) {
     return(df2) 
   } else {
@@ -249,11 +248,21 @@ merge_location_data <- function(df1,df2,byvar="date",
   df2$from2 <- NULL
   if (addld1) df1 <- dplyr::select(df1,-dplyr::one_of(byvar))
   if (addld2) df2 <- dplyr::select(df2,-dplyr::one_of(byvar))
-  if (loud) {
-    if (nrow(df1) != nobs1)
-      cat("obs from dataframe1 ",nrow(df1)," used out of ",nobs1,"\n")
-    if (nrow(df2) != nobs2)
-      cat("obs from dataframe2 ",nrow(df2)," used out of ",nobs2,"\n")
+  if (loud & ( (nrow(df1)!=nobs1) | (nrow(df2)!=nobs2) ) ) {
+    if (nrow(df1)==0) {
+      cat("nothing used from df1\n")
+    } else if (nrow(df1) != nobs1) {
+      cat("obs from dataframe1: ",nrow(df1)," used out of ",nobs1,"\n")
+    } else {
+      cat("all ",nobs1," obs from df1 used\n")
+    }
+    if (nrow(df2)==0) {
+      cat("nothing used from df2\n")
+    } else if (nrow(df2) != nobs2) {
+      cat("obs from dataframe2: ",nrow(df2)," used out of ",nobs2,"\n")
+    } else {
+      cat("all ",nobs2," obs from df2 used\n")
+    }
   }
   return(dplyr::bind_rows(df1,df2) %>%
            dplyr::arrange_(sortvar)  )
