@@ -5,7 +5,7 @@
 \title{Return a dataframe of weather variables characterizing an interval}
 \usage{
 weather_interval(weatherdata, weatherlocation, localdateBegin, localtimeBegin,
-  durationHours)
+  durationHours, dataWindow = 120)
 }
 \arguments{
 \item{weatherdata}{data frame containing weather data}
@@ -20,6 +20,8 @@ of the interval "YYYYMMDD"}
 of the interval "HHMMSS"}
 
 \item{durationHours}{numeric length of the interval in hours}
+
+\item{dataWindow}{number of minutes past ends of interval to look for data}
 }
 \value{
 a dataframe containg the following variables:

@@ -15,6 +15,7 @@
 #' @param localtimeBegin char vector containing the local time of the beginning
 #'   of the interval "HHMMSS"
 #' @param durationHours numeric length of the interval in hours
+#' @param dataWindow number of minutes past ends of interval to look for data
 #'
 #' @return a dataframe containg the following variables:
 #' 
@@ -23,7 +24,7 @@
 #' @export
 weather_interval <- function(weatherdata,weatherlocation,
                              localdateBegin,localtimeBegin,
-                             durationHours) {
+                             durationHours,dataWindow=120) {
   nr <- nrow(localdateBegin)
   weatherdf <- data.frame(localdate=localdateBegin,
                           localtime=localtimeBegin,
@@ -41,28 +42,42 @@ weather_interval <- function(weatherdata,weatherlocation,
                      mapply(
                       mmfuns,timebeg,timeend,
                       MoreArgs=list(datatime=weatherdata$date[wlocdata],
-                                    datameasure=weatherdata$temp[wlocdata]))))
+                                    datameasure=weatherdata$temp[wlocdata],
+                                    toofar=dataWindow))))
+
+    wspd <- weatherdata$wind_spd[wlocdata]
+    wspd[is.na(wspd)] <- 0.0
     winds <- as.data.frame(t(
       mapply(
         mmfuns,timebeg,timeend,
         MoreArgs=list(datatime=weatherdata$date[wlocdata],
-                      datameasure=weatherdata$wind_spd[wlocdata]))))
+                      datameasure=wspd,
+                      toofar=dataWindow))))
+    
+    prcp <- weatherdata$precip[wlocdata]
+    prcp[is.na(prcp)] <- 0.0
     precips <- as.data.frame(t(
       mapply(
         mmfuns,timebeg,timeend,
         MoreArgs=list(datatime=weatherdata$date[wlocdata],
-                      datameasure=weatherdata$precip[wlocdata]))))
+                      datameasure=prcp,
+                      toofar=dataWindow))))
+    
+    gstr <- weatherdata$gustratio[wlocdata]
+    gstr[is.na(gstr)] <- 0.0
     gustratios <- as.data.frame(t(
       mapply(
         mmfuns,timebeg,timeend,
         MoreArgs=list(datatime=weatherdata$date[wlocdata],
-                      datameasure=weatherdata$gustratio[wlocdata]))))
+                      datameasure=gstr,
+                      toofar=dataWindow))))
+ 
     weatherdf[wlocobs,"tempMin"] <- temps[,"min"]
     weatherdf[wlocobs,"tempMean"] <- temps[,"mean"]
-    weatherdf[wlocobs,"tempMAX"] <- temps[,"max"]
+    weatherdf[wlocobs,"tempMax"] <- temps[,"max"]
     weatherdf[wlocobs,"precipMin"] <- precips[,"min"]
     weatherdf[wlocobs,"precipMean"] <- precips[,"mean"]
-    weatherdf[wlocobs,"precipMAX"] <- precips[,"max"]
+    weatherdf[wlocobs,"precipMax"] <- precips[,"max"]
     weatherdf[wlocobs,"windMean"] <- winds[,"mean"]
     weatherdf[wlocobs,"gusty"] <- gustratios[,"max"] > 1.6 & 
                                       winds[,"mean"] > 5
